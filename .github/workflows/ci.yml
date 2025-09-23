@@ -34,5 +34,5 @@ jobs:
       - name: Syntax check
         run: python - <<'PY'
           import compileall, sys
-          sys.exit(0 if compileall.compile_dir('.', force=True, quiet=1) else 1)
-        PY
+          sys.exit(0 if compileall.compile_dir('.', force=True, quiet=1) else 1) 
+          PY
