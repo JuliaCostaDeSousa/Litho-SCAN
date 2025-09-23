@@ -1,0 +1,14 @@
+# Node
+node_modules/
+dist/
+# Python
+.venv/
+__pycache__/
+# Env & artefacts
+frontend/.env
+backend/.env
+ml/data/
+artifacts/
+*.onnx
+*.pdf
+.DS_Store
