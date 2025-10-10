@@ -9,8 +9,8 @@ import ResultsPage from "./ResultsPage.tsx";
 
 const router = createBrowserRouter([
   { path: "/", element: <App /> }, // capture + predict
-  { path: "/scan", element: <ScanMenu /> }, // menu scan
-  { path: "/scanning", element: <ScanPage /> }, // scan en cours
+  { path: "/confirm", element: <ScanMenu /> }, // menu scan
+  { path: "/scan", element: <ScanPage /> }, // scan en cours
   { path: "/results", element: <ResultsPage /> }, // affichage Top-3
 ]);
 

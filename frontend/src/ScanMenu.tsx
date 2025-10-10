@@ -28,7 +28,7 @@ function ScanMenu() {
 
   function debuterScan() {
     if (!file) return;
-    navigate("/scanning", { state: { file } });
+    navigate("/scan", { state: { file } });
   }
 
   function goAccueil() {

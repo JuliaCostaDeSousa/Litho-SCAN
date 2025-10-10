@@ -35,7 +35,7 @@ function App() {
       return;
     }
 
-    navigate("/scan", { state: { file } });
+    navigate("/confirm", { state: { file } });
     e.currentTarget.value = "";
   }
 

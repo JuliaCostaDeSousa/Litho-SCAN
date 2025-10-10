@@ -37,12 +37,12 @@ function ScanPage() {
   }
 
   function annulerScan() {
-    abortRef.current?.abort;
+    abortRef.current?.abort();
     navigate("/", { replace: true });
   }
 
   function reessayerScan() {
-    abortRef.current?.abort;
+    abortRef.current?.abort();
     prepareAnalysis();
   }
 
@@ -58,8 +58,10 @@ function ScanPage() {
 
   async function launchAnalysis(file: File, signal: AbortSignal) {
     try {
+      if (signal.aborted) return
 
     } catch (err) {
+      setLoading(false);
       throw new Error();
     }
   }
