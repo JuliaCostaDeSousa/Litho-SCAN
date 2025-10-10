@@ -1,33 +1,69 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
+import React, { useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom';
 import './App.css'
 
 function App() {
-  const [count, setCount] = useState(0)
+  const navigate = useNavigate();
+  const galleryRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+
+  const [error, setError] = useState<string|null>(null)
+
+  function importPhoto() {
+    galleryRef.current?.click();
+  }
+
+  function takePhoto() {
+    cameraRef.current?.click();
+  }
+
+  function onFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    setError(null); // reset potential former error
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const isImage = file.type ? file.type.startsWith("image/") : /\.(png|jpe?g|heic|webp)$/i.test(file.name);
+    if (!isImage) {
+      setError("Le fichier sélectionné n’est pas une image.");
+      e.currentTarget.value = "";
+      return;
+    }
+    
+    if (file.size > 10 * 1024 * 1024) {
+      setError("L’image dépasse 10 Mo. Choisis-en une plus légère.");
+      e.currentTarget.value = "";
+      return;
+    }
+
+    navigate("/scan", { state: { file } });
+    e.currentTarget.value = "";
+  }
 
   return (
     <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
+      {error && (<p role="alert" className="error">{error}</p>)}
+      <button className="button-importPhoto" onClick={importPhoto} aria-label="Importer une photo" type="button">
+        Importer photo
         </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
+      <input
+        type="file"
+        accept="image/*"
+        ref={galleryRef}
+        onChange={onFileSelected}
+        hidden
+      />
+
+      <button className="button-takePhoto" onClick={takePhoto} aria-label="Prendre une photo" type="button">
+        Prendre Photo
+        </button>
+      <input
+        type="file"
+        accept="image/*"
+        {...{ capture: "environment" }}
+        ref={cameraRef}
+        onChange={onFileSelected}
+        hidden
+      />
     </>
   )
 }
