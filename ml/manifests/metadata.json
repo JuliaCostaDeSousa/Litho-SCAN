@@ -1,0 +1,33 @@
+{
+  "version": "v0.1",
+  "generated_on": "2025-10-20T02:29:03",
+  "seed": 42,
+  "source_dir": "/home/costa/projects/Litho-SCAN/ml/dataset/raw/clean",
+  "by_class": {
+    "basalte": {
+      "nb_images": 75,
+      "nb_parents": 66
+    },
+    "calcaire": {
+      "nb_images": 83,
+      "nb_parents": 79
+    },
+    "granite": {
+      "nb_images": 84,
+      "nb_parents": 80
+    },
+    "gres": {
+      "nb_images": 71,
+      "nb_parents": 65
+    },
+    "schiste": {
+      "nb_images": 63,
+      "nb_parents": 63
+    }
+  },
+  "summary": {
+    "total_classes": 5,
+    "total_images": 376,
+    "total_parents": 353
+  }
+}
