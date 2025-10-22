@@ -13,15 +13,16 @@
 # ⚠️ Ce fichier est volontairement SANS implémentation.
 #    Remplis chaque section avec ton propre code.
 
-# ---------------------------
-# 0) Imports (à compléter)
-# ---------------------------
-# # standard libs (path, args, random, csv/json, time)
-# # imaging (Pillow/OpenCV) — au choix
-# # logging / tqdm (si utile)
-# # numpy (si besoin)
-# # codecarbon (optionnel)
 def main():
+    # ---------------------------
+    # 0) Imports (à compléter)
+    # ---------------------------
+    # # standard libs (path, args, random, csv/json, time)
+    # # imaging (Pillow/OpenCV) — au choix
+    # # logging / tqdm (si utile)
+    # # numpy (si besoin)
+    # # codecarbon (optionnel)
+    
     print("PART 0 : Imports")
 
     import os
