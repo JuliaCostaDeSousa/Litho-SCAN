@@ -19,7 +19,6 @@ def main():
     from PIL import Image
     import torchvision.transforms as transforms
     from torch.utils.data import Dataset, DataLoader
-    from torchvision.io import decode_image
     # ---------------------------
     # 1) Préparation des données
     # ---------------------------
@@ -67,9 +66,11 @@ def main():
                 path_norm  = filepath.strip()
                 if not os.path.isabs(path_norm):
                     # CSV relatifs à ml/dataset
-                    path_relatif = os.path.normpath(os.path.join(DATASET_DIR, path_norm))
+                    path_resolved = os.path.normpath(os.path.join(DATASET_DIR, path_norm))
+                else:
+                    path_resolved = path_norm
                 
-                if not os.path.exists(path_relatif):
+                if not os.path.exists(path_resolved):
                     miss[split][label_norm] += 1
                     continue
                 
@@ -182,62 +183,77 @@ def main():
     class DatasetCSV(Dataset):
         def __init__(self, csv_path, root_dir, classes, transform):
             with open(csv_path, 'r') as csv_file:
-                reader = csv.reader(csv_file)
-                idx_path = reader.index("filepath")
-                idx_label = reader.index("label")
+                reader = csv.DictReader(csv_file)
                 self.path_resolu = []
                 self.label_str = []
                 for row in reader:
-                    filepath = row[idx_path]
+                    filepath = row["filepath"]
                     if not os.path.isabs(filepath):
                         self.path_resolu.append(os.path.normpath(os.path.join(root_dir, filepath)))
                     else:
                         self.path_resolu.append(filepath)
-                    self.label_str.append(row[idx_label])
-            self.img_labels = classes
+                    self.label_str.append(row["label"])
             self.img_dir = root_dir
             self.transform = transform
+            self.label_to_idx = {name: i for i, name in enumerate(classes)}
+            self.img_labels = classes
+
 
         def __len__(self):
             return len(self.path_resolu)
-        
+
         def __getitem__(self, idx):
             img_path = self.path_resolu[idx]
-            image = decode_image(Image.open(img_path).convert("RGB"))
+            image = Image.open(img_path).convert("RGB")
             label = self.label_str[idx]
+            label_idx = self.label_to_idx[label.strip().lower()]
             if self.transform:
                 image = self.transform(image)
-            return image, label
+            return image, label_idx
         
-
+    train_transform = transforms.Compose([
+            transforms.RandomResizedCrop(224, scale=(0.8, 1.0)),  # Resize the image to match the model's input size
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomRotation(10),
+            transforms.ColorJitter(brightness=0.1 , contrast=0.1 ),
+            transforms.ToTensor(),  # Convert the image to a PyTorch tensor
+            transforms.Normalize(
+                mean=[0.485, 0.456, 0.406],  # Normalize the image using the mean and std of ImageNet
+                std=[0.229, 0.224, 0.225]
+            ),
+        ])
+    weights = models.MobileNet_V3_Small_Weights.DEFAULT
+    val_transform = weights.transforms()
+    test_transform = val_transform
 
     train_dataset = DatasetCSV(csv_path=train_csv, root_dir=DATASET_DIR, classes=classes, transform=train_transform)
     val_dataset   = DatasetCSV(csv_path=val_csv,   root_dir=DATASET_DIR, classes=classes, transform=val_transform)
-    test_dataset  = DatasetCSV(csv_path=test_csv,  root_dir=DATASET_DIR, classes=classes, transform=val_transform)
+    test_dataset  = DatasetCSV(csv_path=test_csv,  root_dir=DATASET_DIR, classes=classes, transform=test_transform)
 
-    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=2, pin_memory=True)
-    val_loader   = DataLoader(val_dataset,   batch_size=32, shuffle=False)
-    test_loader  = DataLoader(test_dataset,  batch_size=32, shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=2, persistent_workers=True, pin_memory=True)
+    val_loader   = DataLoader(val_dataset,   batch_size=32, shuffle=False, pin_memory=True)
+    test_loader  = DataLoader(test_dataset,  batch_size=32, shuffle=False, pin_memory=True)
 
     # ---------------------------  
     # 2) Création du modèle
     # ---------------------------
-
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    weights = models.MobileNet_V3_Small_Weights.DEFAULT
-    mobilenet_v3_small = models.mobilenet_v3_small(weights=weights)
-    mobilenet_v3_small.classifier[2] = nn.Linear(in_features=1280, out_features=len(classes))
-    optimizer = optim.Adam(mobilenet_v3_small.parameters(), lr=0.001)
     batch_size = 32
     lr_head = 1e-3
     lr_finetune = 1e-4
     weight_decay = 1e-4
-    dropout = 0.3
-    epochs = 30 # 10 (head) + 20 (finetune)
-    scheduler = ReduceLROnPlateau
-    amp = True # automatic mixed precision
-    patience=5 # early stopping
-    criterion = nn.CrossEntropyLoss()
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    mobilenet_v3_small = models.mobilenet_v3_small(weights=weights)
+    mobilenet_v3_small.classifier[3] = nn.Linear(in_features=1280, out_features=len(classes))
+    mobilenet_v3_small.to(device)
+    mobilenet_v3_small.classifier[2].p = 0.3 # dropout
+
+    optimizer = optim.Adam(mobilenet_v3_small.parameters(), lr=0.001, weight_decay=weight_decay)
+
+#    epochs = 30 # 10 (head) + 20 (finetune)
+#    scheduler = ReduceLROnPlateau
+#    amp = True # automatic mixed precision
+#    patience=5 # early stopping
+#    criterion = nn.CrossEntropyLoss()
 
     # ---------------------------
     # 3) Configuration de l'entrainement
