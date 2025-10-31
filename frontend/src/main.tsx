@@ -1,10 +1,18 @@
-import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import './index.css'
 import App from './App.tsx'
+import ScanMenu from './ScanMenu.tsx';
+import ScanPage from './ScanPage.tsx';
+import ResultsPage from './ResultsPage.tsx';
+
+const router = createBrowserRouter([
+  { path: '/', element: <App /> }, // capture + predict
+  { path: '/confirm', element: <ScanMenu /> }, // menu scan
+  { path: '/scan', element: <ScanPage /> }, // scan en cours
+  { path: '/results', element: <ResultsPage /> }, // affichage Top-3
+]);
 
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
+  <RouterProvider router={router} />
 )
