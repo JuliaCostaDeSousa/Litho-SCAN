@@ -1,0 +1,15 @@
+{
+  "classes": [
+    "basalte",
+    "calcaire",
+    "granite",
+    "gres",
+    "schiste"
+  ],
+  "threshold_tau": 0.54,
+  "threshold_delta": 0.05,
+  "val_coverage": 0.8113207547169812,
+  "val_acc_covered": 0.8837209302325582,
+  "val_abstain_rate": 0.18867924528301883,
+  "temperature": 0.8999999999999999
+}

@@ -11,6 +11,7 @@ def main():
     import os
     import csv
     import time
+    from datetime import datetime
     import random
     from collections import defaultdict
     import numpy as np
@@ -23,6 +24,7 @@ def main():
     import torchvision.transforms as transforms
     from torch.utils.data import Dataset, DataLoader
     from sklearn.metrics import f1_score, confusion_matrix
+    import onnxruntime as ort
 
     class DatasetCSV(Dataset):
             def __init__(self, csv_path, root_dir, classes, transform):
@@ -170,6 +172,108 @@ def main():
                 csv_writer.writeheader()
             csv_writer.writerow({k: row_dict.get(k, "") for k in header})
 
+    def collect_probs_and_labels(model, loader, device, amp=False, temperature: float = 1.0):
+        """Passe le set (val/test) et renvoie (probs_np [N,C], labels_np [N])"""
+        model.eval()
+        all_probs, all_labels = [], []
+        with torch.no_grad():
+            for images, labels in loader:
+                images = images.to(device, non_blocking=True)
+                labels = labels.to(device, non_blocking=True).long()
+                if amp and device.type == 'cuda':
+                    with torch.amp.autocast("cuda"):
+                        logits = model(images) / temperature
+                else:
+                    logits = model(images) / temperature
+                probs = torch.softmax(logits, dim=1)
+                all_probs.append(probs.cpu())
+                all_labels.append(labels.cpu())
+        probs_np  = torch.cat(all_probs).numpy()
+        labels_np = torch.cat(all_labels).numpy()
+        return probs_np, labels_np
+
+    def grid_search_tau_delta(probs_np, labels_np, coverage_min: float = 0.75):
+        """
+        Balaye τ (tau) et δ (delta) et choisit le couple qui maximise acc@covered
+        sous contrainte coverage >= coverage_min.
+        """
+        N, C = probs_np.shape
+        order = np.argsort(probs_np, axis=1)[:, ::-1]           # indices triés
+        p1 = probs_np[np.arange(N), order[:, 0]]
+        p2 = probs_np[np.arange(N), order[:, 1]]
+        pred1 = order[:, 0]
+
+        tau_grid   = np.round(np.arange(0.40, 0.70 + 1e-9, 0.02), 2)
+        delta_grid = np.round(np.arange(0.05, 0.25 + 1e-9, 0.01), 2)
+
+        best = None
+        for tau in tau_grid:
+            for delta in delta_grid:
+                abstain = (p1 < tau) | ((p1 - p2) < delta)
+                covered_mask = ~abstain
+                covered = covered_mask.sum()
+                coverage = covered / N
+                if covered == 0:
+                    acc_cov = 0.0
+                else:
+                    acc_cov = (pred1[covered_mask] == labels_np[covered_mask]).mean()
+
+                # score : maximiser acc@covered, pénaliser si coverage < seuil
+                score = acc_cov if coverage >= coverage_min else acc_cov - (coverage_min - coverage)
+
+                if (best is None) or (score > best["score"]):
+                    best = {
+                        "tau": float(tau),
+                        "delta": float(delta),
+                        "coverage": float(coverage),
+                        "acc_covered": float(acc_cov),
+                        "abstain_rate": float(1.0 - coverage),
+                        "score": float(score),
+                    }
+        return best
+
+    def save_model_meta(out_dir, classes, tau, delta, coverage, acc_cov, abstain_rate, temperature=None):
+        meta = {
+            "classes": classes,                  # ordre gelé (utile au front)
+            "threshold_tau": tau,
+            "threshold_delta": delta,
+            "val_coverage": coverage,
+            "val_acc_covered": acc_cov,
+            "val_abstain_rate": abstain_rate,
+        }
+        if temperature is not None:
+            meta["temperature"] = float(temperature)
+        with open(os.path.join(out_dir, "model_meta.json"), "w", encoding="utf-8") as f:
+            json.dump(meta, f, ensure_ascii=False, indent=2)
+        print("[calibration] model_meta.json enregistré :", os.path.join(out_dir, "model_meta.json"))
+
+    def find_temperature_on_val(model, loader, device, amp=False):
+        """Grid search simple pour minimiser la NLL sur val, renvoie T."""
+        model.eval()
+        # on empile logits/labels pour NLL propre
+        all_logits, all_labels = [], []
+        with torch.no_grad():
+            for images, labels in loader:
+                images = images.to(device, non_blocking=True)
+                labels = labels.to(device, non_blocking=True).long()
+                if amp and device.type == 'cuda':
+                    with torch.amp.autocast("cuda"):
+                        logits = model(images)
+                else:
+                    logits = model(images)
+                all_logits.append(logits.cpu())
+                all_labels.append(labels.cpu())
+        logits = torch.cat(all_logits)    # [N,C] CPU
+        labels = torch.cat(all_labels)    # [N]   CPU
+
+        ce = torch.nn.CrossEntropyLoss(reduction="mean")
+        best_T, best_nll = 1.0, float("inf")
+        for T in np.arange(0.5, 3.0 + 1e-9, 0.1):
+            nll = ce(logits / float(T), labels).item()
+            if nll < best_nll:
+                best_nll, best_T = nll, float(T)
+        return best_T
+
     def train_one_epoch(model, loader, optimizer, criterion, device, scaler, amp, max_grad_norm=None):
         model.train()
         accum_loss, correct, total = 0.0, 0, 0
@@ -257,6 +361,142 @@ def main():
     def compute_f1_macro(preds, labels):
         return f1_score(labels, preds, average="macro")
     
+    def export_model(
+        ckpt_phase2_path,
+        ckpt_phase1_path,
+        out_dir,
+        classes,                 # ordre gelé
+        preprocess_cfg,          # {size, mean, std, color_space, dtype, policy...}
+        meta_thresholds,         # {tau, delta, temperature T, coverage, acc_covered, abstain_rate}
+        export_format,           # "onnx" | "torchscript"
+        opset,                   # si onnx
+        test_dataset,
+        sanity_n=3,               # nb d'images pour le smoke test
+    ):
+        print("EXPORT DU MODELE")
+
+        # 0) Préliminaires
+        os.makedirs(out_dir, exist_ok=True)
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        # 1) Reconstruire le modèle
+        if not (os.path.exists(ckpt_phase2_path) or os.path.exists(ckpt_phase1_path)):
+            raise FileNotFoundError("Aucun checkpoint trouvé.")
+        best_ckpt_path = ckpt_phase2_path if os.path.exists(ckpt_phase2_path) else ckpt_phase1_path
+        ckpt = torch.load(best_ckpt_path, map_location=device)
+        model = models.mobilenet_v3_small(weights=None)
+        in_features = model.classifier[-1].in_features
+        model.classifier[2].p = 0.3 # dropout
+        model.classifier[-1] = nn.Linear(in_features, len(classes))
+        model.load_state_dict(ckpt["model_state_dict"], strict=True)
+        model.eval().to(device)
+
+        # 2) Définir l’API d’entrée/sortie & dummy input
+        input_name  = "input"       # stable, pour l’artefact
+        output_name = "logits"      # (logits plutôt que probas = plus flexible)
+        N, C, H, W = 1, 3, preprocess_cfg["size"], preprocess_cfg["size"]
+        dummy_input = torch.zeros((N, C, H, W), dtype=torch.float32, device=device)
+
+        # 3) Export binaire
+        if export_format == "onnx":
+            if opset is None:
+                opset = 18  # Utilise les opérateurs ONNX de la version 18 du standard pour encoder ce modèle
+            onnx_path = os.path.join(out_dir, "model.onnx")
+            with torch.no_grad():
+                torch.onnx.export(
+                    model,
+                    dummy_input,
+                    onnx_path,
+                    input_names=["input"],
+                    output_names=["logits"],
+                    opset_version=18,
+                    dynamo=True,
+                    dynamic_shapes={
+                        "x":  {0: "batch", 2: "height", 3: "width"},
+                        },
+                    )
+            exported_path = onnx_path
+
+        elif export_format == "torchscript":
+            # trace ou script, selon ton modèle (Mobilenet → trace OK)
+            ts_path = os.path.join(out_dir, "model.torchscript")
+            with torch.no_grad():
+                ts = torch.jit.trace(model, dummy_input)
+                ts.save(ts_path)
+            exported_path = ts_path
+
+        else:
+            raise ValueError("export_format inconnu")
+
+        # 4) Écrire les métadonnées & manifestes
+        save_model_meta(
+            out_dir,
+            classes,
+            tau=meta_thresholds["threshold_tau"],
+            delta=meta_thresholds["threshold_delta"],
+            coverage=meta_thresholds["val_coverage"],
+            acc_cov=meta_thresholds["val_acc_covered"],
+            abstain_rate=meta_thresholds["val_abstain_rate"],
+            temperature=meta_thresholds.get("temperature", None)
+            )
+
+        with open(os.path.join(out_dir, "class_manifest.json"), "w", encoding="utf-8") as f:
+            json.dump({ "classes": classes }, f, ensure_ascii=False, indent=2)
+
+        # 5) Contrôle qualité post-export (parité logits)
+        #    (prendre 3 images du test, appliquer la même préproc)
+        if test_dataset is not None and len(test_dataset) > 0 and sanity_n > 0:
+            model_cpu = model.to("cpu")
+            model_cpu.eval()
+            # echantillons du dataset de test
+            idxs = random.sample(range(len(test_dataset)), k=min(sanity_n, len(test_dataset)))
+            # tolérances réalistes entre frameworks / dtypes
+            rtol = 1e-3
+            atol = 5e-3
+            for i in idxs:
+                x_tensor, _ = test_dataset[i]
+                x = x_tensor.unsqueeze(0).to("cpu")
+                with torch.no_grad():
+                    # on passe les images dans le modèle
+                    logits_pt = model_cpu(x).numpy() 
+                x_np = x.numpy().astype(np.float32)
+                if export_format == "onnx":
+                    sess = ort.InferenceSession(exported_path, providers=["CPUExecutionProvider"])
+                    ort_inputs = {input_name: x_np}
+                    logits_art = sess.run(["logits"], ort_inputs)[0]  # [1,C]
+                elif export_format == "torchscript": # attend un tenseur pytorch
+                    ts = torch.jit.load(exported_path, map_location="cpu")
+                    ts.eval()
+                    with torch.no_grad():
+                        logits_art = ts(torch.from_numpy(x_np)).numpy()  # [1,C]
+                else:
+                    raise ValueError("export_format inconnu")
+                
+                if not np.allclose(logits_pt, logits_art, rtol=rtol, atol=atol):
+                    diff = float(np.max(np.abs(logits_pt - logits_art)))
+                    print(f"[warn] Parité PyTorch↔{export_format} légèrement différente (max|Δ|={diff:.2e})")
+
+
+        # 6) Traçabilité
+
+        model_card = f"""# Litho-SCAN — Model Card
+
+        - **Arch**: MobileNetV3-Small
+        - **Task**: Classification de roches ({len(classes)} classes)
+        - **Export**: {export_format} (opset={opset if export_format=='onnx' else 'n/a'})
+        - **Input**: [1,3,{H},{W}] float32
+        - **Output**: logits [1,{len(classes)}]
+        - **Thresholds**: tau={meta_thresholds['threshold_tau']}, delta={meta_thresholds['threshold_delta']}, T={meta_thresholds.get('temperature','-')}
+        - **Date**: {datetime.now().isoformat()}
+        - **Seed**: 42
+
+        Voir `model_meta.json`, `preprocess.json`, `class_manifest.json` et `scores_test.json` pour les détails.
+        """
+        with open(os.path.join(out_dir, "MODEL_CARD.md"), "w", encoding="utf-8") as f:
+            f.write(model_card)
+
+        return exported_path
+    
     def fit(model, train_loader, val_loader, test_loader, device,
             lr_head, lr_finetune, weight_decay, patience_es, amp,
             OUT_DIR, classes, epochs_phase1, epochs_phase2):
@@ -273,7 +513,6 @@ def main():
         # PHASE 1 — HEAD ONLY
         # =========================================================
         print("PHASE 1 : HEAD ONLY")
-        tracker.start_task("phase1_head")
 
         freeze_backbone(model) # avant l'optimizer
         optimizer = make_optimizer_phase1(model, lr_head, weight_decay)
@@ -309,14 +548,11 @@ def main():
             one_epoch_p1 = time.time() - t0_p1
             print(f"~{one_epoch_p1:.2f}s per epoch  -> ~{one_epoch_p1*30/60:.1f} min for 30 epochs")
 
-        tracker.stop_task()
-
         # =========================================================
         # PHASE 2 — FINE-TUNING LÉGER
         # =========================================================
         # Repart du meilleur de phase 1 — NE PAS recharger l'optimizer ici
         print("PHASE 2 : FINE-TUNING")
-        tracker.start_task("phase2_finetune")
 
         load_ckpt(best_ckpt_p1, model, optimizer=None, scaler=None,
                 device=device, expected_classes=classes, resume_optimizer=False)
@@ -357,13 +593,17 @@ def main():
             one_epoch_p2 = time.time() - t0_p2
             print(f"~{one_epoch_p2:.2f}s per epoch  -> ~{one_epoch_p2*30/60:.1f} min for 30 epochs")
         
-        tracker.stop_task()
-
         # =========================
         # TEST FINAL (après entraînement)
         # =========================
-        # 0) Recharger le meilleur modèle de Phase 2 (ou Phase 1 si tu stoppes là)
-        load_ckpt(best_ckpt_p2, model, optimizer=None, scaler=None,
+        # 0) Recharger le meilleur modèle de Phase 2 ou Phase 1 si phase 2 trop courte)
+        print("TEST FINAL")
+        if not os.path.exists(best_ckpt_p2):
+            print("[warn] best_phase2.ckpt manquant, fallback best_phase1.ckpt")
+            best_to_load = best_ckpt_p1
+        else:
+            best_to_load = best_ckpt_p2
+        load_ckpt(best_to_load, model, optimizer=None, scaler=None,
                 device=device, expected_classes=classes, resume_optimizer=False)
         model.eval()
 
@@ -456,13 +696,7 @@ def main():
         "classes": classes                   # ordre gelé
         }
 
-        # 6) Sauvegarde JSON
-        emissions = tracker.stop()
-        scores["summary"]["emissions_kg_co2e"] = float(emissions)
-        with open(OUT_DIR + "/scores_test.json", 'w', encoding="utf-8") as scores_test_file:
-            json.dump(scores, scores_test_file, indent=2, ensure_ascii=False)
-
-        # 7) (option) Sauvegarde CSV de la matrice de confusion
+        # 6) (option) Sauvegarde CSV de la matrice de confusion
         #   header: [""] + classes
         #   lignes: classe_i, cm[i,0], cm[i,1], ...
         with open(OUT_DIR + "/confusion_matrix_test.csv", 'w', newline="", encoding="utf-8") as scores_test_file:
@@ -471,9 +705,31 @@ def main():
             for i, row in enumerate(cm):
                 scores_test_file_w.writerow([classes[i]] + row.tolist())
 
+        # =========================
+        # Calibration τ/δ sur le set de validation
+        # =========================
+        print("CALIBRATION τ/δ")
 
+        T = find_temperature_on_val(model, val_loader, device, amp=amp)
 
-
+        # 1. Collecter les probabilités et labels sur val
+        val_probs, val_labels = collect_probs_and_labels(model, val_loader, device, amp=amp, temperature=T)
+        
+        # 2. Balayer tau/delta pour trouver le meilleur couple
+        best = grid_search_tau_delta(val_probs, val_labels, coverage_min=0.75)
+        
+        # 3. Sauvegarder dans model_meta.json
+        save_model_meta(
+            OUT_DIR, classes,
+            tau=best["tau"], delta=best["delta"],
+            coverage=best["coverage"], acc_cov=best["acc_covered"],
+            abstain_rate=best["abstain_rate"], temperature=T
+        )
+    
+        print(f"✅ Calibration terminée — τ={best['tau']}, δ={best['delta']}, "
+            f"coverage={best['coverage']:.2f}, acc@covered={best['acc_covered']:.2f}")
+        
+        return scores
     # ---------------------------
     # 1) Préparation des données
     # ---------------------------
@@ -491,11 +747,12 @@ def main():
     MANIFESTS_DIR = os.path.join(path, "manifests")
     ARTIFACTS_DIR = os.path.join(path, "artifacts")
     RAW_CLEAN_DIR = os.path.join(DATASET_DIR, "raw", "clean")
+    EXPORT_DIR = os.path.join(path, "exports")
 
-    #RUN_NAME = datetime.now().strftime("%Y%m%d-%H%M%S")
+    RUN_NAME = datetime.now().strftime("%Y%m%d-%H%M%S")
     #if RUN_NAME:
-    #    OUT_DIR = ARTIFACTS_DIR + "/" + RUN_NAME
-    OUT_DIR = ARTIFACTS_DIR + "/"
+    OUT_DIR = ARTIFACTS_DIR + "/" + RUN_NAME
+    # OUT_DIR = ARTIFACTS_DIR + "/"
     os.makedirs(ARTIFACTS_DIR, exist_ok=True)
     os.makedirs(OUT_DIR, exist_ok=True)
 
@@ -685,18 +942,16 @@ def main():
     mobilenet_v3_small.to(device)
     mobilenet_v3_small.classifier[2].p = 0.3 # dropout
 
-    
-
     tracker = EmissionsTracker(
         project_name="Litho-SCAN_Training",
         output_dir=OUT_DIR,
-        country_iso_code="FRA",
-        measure_power_secs=1,     # fréquence de mesure
-        log_level="info",         # ou "warning" pour moins de verbosité
+        measure_power_secs=30,     # fréquence de mesure
+        log_level="error",         # ou "warning" pour moins de verbosité
     )
+    tracker._geo.country_iso_code='FRA'
     tracker.start()
 
-    fit(
+    scores = fit(
             model=mobilenet_v3_small,
             train_loader=train_loader,
             val_loader=val_loader,
@@ -712,13 +967,41 @@ def main():
             epochs_phase1=epochs_phase1,
             epochs_phase2=epochs_phase2
         )
-        
+    
+    preprocess_cfg = {
+                "size": 224,
+                "color_space": "RGB",
+                "dtype": "float32",
+                "mean": [0.485,0.456,0.406],
+                "std":  [0.229,0.224,0.225],
+                "policy": "val_transforms"
+    }
+
+    with open(os.path.join(OUT_DIR, "preprocess.json"), "w", encoding="utf-8") as preprocess_file:
+        json.dump(preprocess_cfg, preprocess_file, indent=2, ensure_ascii=False)
+
+    with open(os.path.join(OUT_DIR, "model_meta.json"), "r", encoding="utf-8") as f:
+        meta_t = json.load(f)
+
+    export_model(
+        os.path.join(OUT_DIR, "best_phase2.ckpt"),
+        os.path.join(OUT_DIR, "best_phase1.ckpt"),
+        OUT_DIR,
+        classes,
+        preprocess_cfg,
+        meta_thresholds = meta_t,
+        export_format="onnx",
+        opset=18,
+        test_dataset=test_dataset,
+        sanity_n=3,
+    )
+    
     emissions: float = tracker.stop()
     print(f"🌱 Entraînement terminé — émissions estimées : {emissions:.6f} kg CO₂eq")
-
-    # ---------------------------
-    # 6) Export du modèle
-    # ---------------------------
+    # Sauvegarde JSON
+    scores["summary"]["emissions_kg_co2e"] = float(emissions)
+    with open(OUT_DIR + "/scores_test.json", 'w', encoding="utf-8") as scores_test_file:
+        json.dump(scores, scores_test_file, indent=2, ensure_ascii=False)
 
 
 if __name__ == "__main__":

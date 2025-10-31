@@ -1,0 +1,13 @@
+2025-09-23 | chore: scaffold monorepo (frontend, backend, ml, artifacts, docs)
+2025-09-23 | feat: frontend scaffold
+2025-09-23 | feat: backend /health (minimal)
+2025-09-23 | ci: add minimal CI (frontend build + backend syntax)
+2025-09-23 | ci: fix indentation in ci.yml
+2025-09-23 | chore(backend): add minimal requirements.txt for CI
+2025-09-23 | ci: fix backend syntax-check step (use python -m compileall)
+2025-10-17 | chore(ml): structure initiale dossier IA et script prepare_dataset.py (vide)
+2025-10-18 | feat(dataset): intégration du dataset locale (non versionné) et script de préparation du dataset (scan/validation des données + regroupement parents, WIP)
+2025-10-20 | feat(dataset): finalisation du script prepare_dataset.py - ajout du split stratifié par groupes parent (seed=42) - génération des fichiers train/val/test.csv globaux - création de parents_index.json et metadata.json
+2025-10-22 | feat(data): ajout du DatasetCSV et préparation des DataLoaders + structure modèle MobileNetV3
+2025-10-23 | feat(data): DatasetCSV solide + DataLoaders (train/val/test) + setup MobileNetV3 (head-only ready)
+2025-10-26 | feat(train): boucle d'entraînement complète (head-only + fine-tuning + éval + CodeCarbon) - ajout des phases P1/P2 avec freeze/unfreeze backbone - early stopping, scheduler, checkpoints, métriques (F1, confusion, top-3) - rapport JSON/CSV et intégration CodeCarbon pour suivi CO₂

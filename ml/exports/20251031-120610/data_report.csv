@@ -1,0 +1,7 @@
+class,n_train,n_val,n_test,total,pct_total,missing_files
+basalte,55,10,10,75,19.9,0
+calcaire,58,12,13,83,22.1,0
+granite,60,12,12,84,22.3,0
+gres,52,10,9,71,18.9,0
+schiste,44,9,10,63,16.8,0
+TOTAL,269,53,54,376,100.0,0

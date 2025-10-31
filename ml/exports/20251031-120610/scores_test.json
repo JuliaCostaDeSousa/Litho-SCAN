@@ -1,0 +1,92 @@
+{
+  "summary": {
+    "num_samples": 54,
+    "num_classes": 5,
+    "test_loss": 0.775159564283159,
+    "test_acc": 0.7037037037037037,
+    "f1_macro": 0.707921146953405,
+    "top3_acc": 0.9444444444444444,
+    "emissions_kg_co2e": 9.253741265776459e-05
+  },
+  "per_class": [
+    {
+      "class": "basalte",
+      "f1": 0.7777777777777778,
+      "support": 10,
+      "precision": null,
+      "recall": null
+    },
+    {
+      "class": "calcaire",
+      "f1": 0.7,
+      "support": 13,
+      "precision": null,
+      "recall": null
+    },
+    {
+      "class": "granite",
+      "f1": 0.6451612903225806,
+      "support": 12,
+      "precision": null,
+      "recall": null
+    },
+    {
+      "class": "gres",
+      "f1": 0.6666666666666666,
+      "support": 9,
+      "precision": null,
+      "recall": null
+    },
+    {
+      "class": "schiste",
+      "f1": 0.75,
+      "support": 10,
+      "precision": null,
+      "recall": null
+    }
+  ],
+  "confusion_matrix": [
+    [
+      7,
+      0,
+      0,
+      0,
+      3
+    ],
+    [
+      0,
+      7,
+      5,
+      1,
+      0
+    ],
+    [
+      1,
+      0,
+      10,
+      0,
+      1
+    ],
+    [
+      0,
+      0,
+      3,
+      5,
+      1
+    ],
+    [
+      0,
+      0,
+      1,
+      0,
+      9
+    ]
+  ],
+  "classes": [
+    "basalte",
+    "calcaire",
+    "granite",
+    "gres",
+    "schiste"
+  ]
+}
