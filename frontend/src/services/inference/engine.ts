@@ -1,4 +1,8 @@
 import * as ort from 'onnxruntime-web';
+let _session: ort.InferenceSession | null = null;
+let _inputName: string | null = null;
+let _outputName: string | null = null;
+let _inputDims: number[] | null = null;
 
 const modelUrl = '/models/model.onnx';
 
@@ -8,7 +12,10 @@ const sessionOption: ort.InferenceSession.SessionOptions = {
   graphOptimizationLevel: 'all', // Peut accélerer les inférences
  };
 
-async function sessionInit() {
+export async function loadEngine() {
+  if (_session) {
+    return { session: _session, inputName: _inputName!, outputName: _outputName!, inputDims: _inputDims! };
+  }
   console.log('Chargement du modèle…');
   const session = await ort.InferenceSession.create(modelUrl, sessionOption);
   console.log('Session chargée ✅');
@@ -34,7 +41,19 @@ async function sessionInit() {
   
   await session.run({[inputName]: warmupTensor})
   const outputName = session.outputNames[0];
-  console.log('Warm-up OK → output:', outputName);
-};
 
-sessionInit();
+    _session = session;
+  _inputName = inputName;
+  _outputName = session.outputNames[0];
+  _inputDims = dims;
+
+  console.log('Warm-up OK → output:', outputName);
+  return { session: _session, inputName: _inputName, outputName: _outputName, inputDims: _inputDims };
+}
+
+export function getEngine() {
+  if (!_session || !_inputName || !_outputName || !_inputDims) {
+    throw new Error('Engine non chargé — appeller loadEngine() d\'abord.');
+  }
+  return { session: _session, inputName: _inputName, outputName: _outputName, inputDims: _inputDims };
+}
