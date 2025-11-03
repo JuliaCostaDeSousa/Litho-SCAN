@@ -9,5 +9,20 @@ export default defineConfig({
     port: 5173,
     allowedHosts: ['lithoscan-demo.loca.lt'],
     strictPort: true,
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+    },
   },
+  preview: {
+    host: true,
+    port: 4173,
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+    },
+  },
+  optimizeDeps: { exclude: ['onnxruntime-web'] },
 })
+
+

@@ -1,21 +1,23 @@
-import { useLocation, useNavigate } from 'react-router-dom'
-import { useState, useEffect, useRef } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
 import { TransferStore } from "./lib/transfer";
+import { predict } from './services/inference/InferenceService';
+
 type NavStateScanPage = { file?: Blob} | null;
 
 function ScanPage() {
   const navigate = useNavigate();
-	const { state } = useLocation() as { state: NavStateScanPage };
+  const { state } = useLocation() as { state: NavStateScanPage };
   const [file, setFile] = useState<Blob | null>(null);
-  const [error, setError] = useState<string|null>(null)
-	const [preview, setPreview] = useState<string>();
-  const [loading, setLoading] = useState(false)
-  const [progress, setProgress] = useState(0)
+  const [error, setError] = useState<string|null>(null);
+  const [preview, setPreview] = useState<string>();
+  const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
 
 	useEffect(() => {
     // 1) d’abord via state ; 2) sinon via le stash en secours
-    const fromState = state?.file ?? null;;
+    const fromState = state?.file ?? null;
     const fromStash = TransferStore.take();
     const found = fromState ?? fromStash ?? null;
 
@@ -65,13 +67,6 @@ function ScanPage() {
     (async () => {
       try {
         await launchAnalysis(blob, signal);
-        // petite pause pour laisser peindre "100%"
-        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-        await new Promise(r => setTimeout(r, 200));
-        if (!signal.aborted) {
-          TransferStore.set(blob);
-          navigate("/results", { state: { from: "scan" } });
-        }
       } catch (e: any) {
         if (e?.name !== "AbortError") setError("Une erreur est survenue pendant l’analyse.");
       } finally {
@@ -80,22 +75,42 @@ function ScanPage() {
     })();
 	}
 
-  // Exemple d’analyse “fake” avec progression + respect d’abort
   async function launchAnalysis(file: Blob, signal: AbortSignal) {
     // Exemple: décoder une bitmap (utile pour vérifier la lisibilité du blob)
     // Tip: createImageBitmap respecte souvent mieux les blobs que <img> sur Android
     const bmp = await createImageBitmap(file).catch(() => { throw new Error("Impossible de décoder l'image."); });
     bmp.close(); // on n’en a pas besoin plus longtemps
-
+    setProgress(10);
+    if (signal.aborted) throw new DOMException("Aborted", "AbortError");
     // Progression simulée (remplace par ton vrai algo / upload / worker…)
 
-		for (let i = 1; i <= 20; i++) {
-			if (signal.aborted) throw new DOMException("Aborted", "AbortError");
-			await new Promise(r => setTimeout(r, 80));
-			const pct = Math.round((i / 20) * 100);
-			setProgress(pct);
-		}
-  }
+    // (on "race" entre predict et l'abort)
+    let abortHandler: (() => void) | null = null;
+    const raceAbort = new Promise<never>((_, rej) => {
+      abortHandler = () => rej(new DOMException("Aborted", "AbortError"));
+      signal.addEventListener('abort', abortHandler, { once: true });
+      });
+    // animation entre 10 et 95%
+    let anim = true;
+    (async () => {
+      while (anim && !signal.aborted) {
+        await new Promise(r => setTimeout(r, 120));
+        setProgress(p => Math.min(95, p + 2));
+      }
+    })();
+    try {
+      const result = await Promise.race([predict(file), raceAbort]);
+      if (signal.aborted) throw new DOMException("Aborted", "AbortError");
+      anim = false
+      setProgress(100);
+      TransferStore.set(file);
+      navigate("/results", { state: { from: "scan", result } });
+    } finally {
+      //clean
+      anim = false;
+      if (abortHandler) signal.removeEventListener('abort', abortHandler);
+    }
+  } 
 
   if (!file) return <p>Redirection…</p>;
 
