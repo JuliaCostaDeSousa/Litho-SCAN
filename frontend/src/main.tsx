@@ -6,6 +6,14 @@ import ScanMenu from './ScanMenu.tsx';
 import ScanPage from './ScanPage.tsx';
 import ResultsPage from './ResultsPage.tsx';
 
+window.addEventListener('error', (e) => {
+  console.error('[window.onerror]', e.message, e.error);
+});
+window.addEventListener('unhandledrejection', (e) => {
+  console.error('[unhandledrejection]', e.reason);
+});
+console.log('[debug] global handlers installed');
+
 const router = createBrowserRouter([
   { path: '/', element: <App /> }, // capture + predict
   { path: '/confirm', element: <ScanMenu /> }, // menu scan

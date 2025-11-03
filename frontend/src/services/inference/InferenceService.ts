@@ -1,12 +1,28 @@
-import { preprocessToNCHW } from "./preprocess.ts"
-import { loadEngine, getEngine } from "./engine.ts"
-import * as ort from 'onnxruntime-web';
+import { preprocessToNCHW } from "./preprocess";
+import { loadEngine, getEngine, ensureOrt } from "./engine";
 
 let LABELS: string[] = [];
 let T = 1;
 let TAU = 0.6;
 let DELTA = 0.05;
 let META_LOADED = false;
+
+// utils locaux (pas de spread => pas de stack overflow)
+function arrMin(a: ArrayLike<number>) {
+  let m = Infinity;
+  for (let i = 0; i < a.length; i++) if (a[i] < m) m = a[i];
+  return m;
+}
+function arrMax(a: ArrayLike<number>) {
+  let m = -Infinity;
+  for (let i = 0; i < a.length; i++) if (a[i] > m) m = a[i];
+  return m;
+}
+function arrMean(a: ArrayLike<number>) {
+  let s = 0;
+  for (let i = 0; i < a.length; i++) s += a[i];
+  return s / a.length;
+}
 
 export type TopItem = { index: number; prob: number };
 
@@ -49,35 +65,86 @@ export async function loadMeta() {
 }
 
 export async function predict(file: Blob) {
+  console.log('[predict] start');
   try {
-    await loadMeta()
-    await loadEngine();
+    await loadMeta();
+    const engine = await loadEngine();
+    console.log('[predict] engine', engine?.diagnostics ?? {});
 
     const { session, inputName } = getEngine();
     const { data, size } = await preprocessToNCHW(file);
-    const tensor = new ort.Tensor('float32', data, [1, 3, size, size]);
-    const outputs = await session.run({[inputName]: tensor})
+    console.log('[predict] tensor shape', [1,3,size,size], 'inputName', inputName);
 
-    const logits = (outputs as any)[session.outputNames[0]].data as Float32Array;
+    const sum = arrMean(data) * data.length; // si tu tiens au "sum"
+    const minIn = arrMin(data);
+    const maxIn = arrMax(data);
+    console.log('[dbg] input stats:', {
+    sum, minIn, maxIn, first10: Array.from(data.subarray(0, 10))
+    });
+
+    const ort = await ensureOrt();
+    const tensor = new ort.Tensor('float32', data, [1, 3, size, size]);
+
+    let outputs: Record<string, any>;
+    try {
+      outputs = await session.run({ [inputName]: tensor });
+    } catch (e: any) {
+      console.error('[predict] session.run FAILED', e?.message ?? e, e);
+      throw new Error('[session.run] ' + (e?.message ?? e));
+    }
+
+    const outputName = session.outputNames[0];
+    const out = outputs[outputName];
+    console.log('[predict] outputs keys', Object.keys(outputs), 'expected', outputName, 'out=', out);
+
+    if (!out) {
+      throw new Error(`[outputs] missing "${outputName}" (got: ${Object.keys(outputs).join(', ')})`);
+    }
+
+    const logits = (out.data as Float32Array) ?? (out as Float32Array);
+    if (!logits || typeof logits.length !== 'number') {
+      console.error('[predict] bad logits tensor', out);
+      throw new Error('[outputs] invalid logits buffer');
+    }
+    console.log('[predict] logits length', logits.length);
+    const minLog = arrMin(logits);
+    const maxLog = arrMax(logits);
+    const meanLog = arrMean(logits);
+    console.log('[dbg] logits stats:', {
+    len: logits.length, minLog, maxLog, meanLog,
+    first10: Array.from(logits.subarray(0, 10))
+    });
+    // 🛡️ Garde-fou : si labels ≠ logits, on génère des labels génériques pour ne pas crasher
+    const labels =
+      LABELS.length === logits.length
+        ? LABELS
+        : Array.from({ length: logits.length }, (_, i) => `class_${i}`);
+
+    if (LABELS.length !== logits.length) {
+      console.warn(`[predict] Labels (${LABELS.length}) ≠ logits (${logits.length}) — using generic labels for this run.`);
+    }
+
     const probs = softmax(logits, T);
-    if (LABELS.length !== probs.length) throw new Error(`Labels=${LABELS.length} ≠ logits=${probs.length}`);
+    console.log('[dbg] probs first5:', Array.from(probs.slice(0,5)));
+
     const top3Raw = topK(probs, 3);
     const abstained = top3Raw[0].prob < TAU || (top3Raw[0].prob - top3Raw[1].prob) < DELTA;
     const top3 = top3Raw.map(t => ({
-        index: t.index,
-        label: LABELS[t.index],
-        prob: t.prob,
-        percent: Math.round(t.prob * 100),
+      index: t.index,
+      label: labels[t.index],
+      prob: t.prob,
+      percent: Math.round(t.prob * 100),
     }));
-    
-    return { 
-      top3, 
+
+    console.log('[predict] done', top3);
+    return {
+      top3,
       top1_label: top3[0]?.label ?? null,
       top1_conf: top3[0]?.prob ?? 0,
-      abstained
-    }
-  } catch (e:any) {
-    console.error(e);
-    throw new Error(e?.message ?? "Échec de l'inférence");
+      abstained,
+    };
+  } catch (e: any) {
+    console.error('[predict] FAILED', e?.message ?? e, e);
+    throw e; // laisse l’UI afficher l’erreur
   }
 }
