@@ -20,7 +20,8 @@ function ResultsPage() {
   const [rockInfos, setRockInfos] = useState<any[] | null>(null);
   const [infoLoading, setInfoLoading] = useState(false);
   const [infoError, setInfoError] = useState<string | null>(null);
-  
+  const [activeIdx, setActiveIdx] = useState(0);
+
   const result = state?.result;
 
   const confByLabel = new Map(
@@ -62,7 +63,11 @@ function ResultsPage() {
     return nomDb ? { labelModel: lab, nomDb, percent: pct } : null;
   }).filter(Boolean) as { labelModel: string; nomDb: string; percent?: number }[];
 
-  
+  useEffect(() => {
+    if (!rockInfos) return;
+    if (activeIdx > rockInfos.length - 1) setActiveIdx(0);
+  }, [rockInfos, activeIdx]);
+
   useEffect(() => {
     // 1) d’abord via state ; 2) sinon via le stash en secours
     const fromState = state?.file ?? null;
@@ -169,28 +174,29 @@ function ResultsPage() {
               : `${prettyLabel(result?.top1_label) ?? "—"} — ${top1Percent}%`}
           </h2>
 
-          {/* Indices de confiances — uniquement les alternatives (sans Top-1) */}
-          {!isAbstained && result && (
-            (() => {
-              const alts = (result.top3 ?? []).filter(
-                t => (result.top1_label ?? "").toLowerCase() !== t.label.toLowerCase()
-              );
-              if (alts.length === 0) return null; // rien à montrer si 100%
+          {/* Autres prédictions — uniquement si non certain et s'il reste des % > 0 */}
+          {!isAbstained && result && !isCertain && (() => {
+            const alts = (result.top3 ?? []).filter(
+              (t) =>
+                (result.top1_label ?? "").toLowerCase() !== t.label.toLowerCase() &&
+                (t.percent ?? 0) > 0
+            );
 
-              return (
-                <div className="mt-6 text-center">
-                  <strong>Autres prédictions :</strong>
-                  <div className="mt-2 space-y-1 text-sm">
-                    {alts.map((t) => (
-                      <div key={t.index}>
-                        <div>{prettyLabel(t.label)}: <strong>{t.percent}%</strong></div>
-                      </div>
-                    ))}
-                  </div>
+            if (alts.length === 0) return null;
+
+            return (
+              <div className="mt-6 text-center">
+                <strong>{alts.length > 1 ? "Autres prédictions" : "Autre prédiction"} :</strong>
+                <div className="mt-2 space-y-1 text-sm">
+                  {alts.map((t) => (
+                    <div key={t.index}>
+                      <div>{prettyLabel(t.label)}: <strong>{t.percent}%</strong></div>
+                    </div>
+                  ))}
                 </div>
-              );
-            })()
-          )}
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -216,10 +222,6 @@ function ResultsPage() {
           <div className="mt-8" aria-live="polite">
             <hr className="my-8 border-gray-600/40 w-2/3 mx-auto" />
 
-            <h3 className="text-base font-semibold">
-              Fiche informative : {prettyLabel(result?.top1_label)}
-            </h3>
-
             {infoLoading && <p className="text-sm mt-2">Chargement des informations…</p>}
 
             {!infoLoading && infoError && (
@@ -234,50 +236,96 @@ function ResultsPage() {
 
             {!infoLoading && !infoError && rockInfos && rockInfos.length > 0 && (
               <div className="mt-3 grid gap-8">
-                <article className="rounded-xl border p-4 shadow-sm">
-                  {/*Fiche informative*/}
-                  {rockInfos[0].type && (
-                    <p className="text-sm mt-2">
-                      <strong>Type :</strong> {rockInfos[0].type}
-                    </p>
-                  )}
-                  {rockInfos[0].texture && (
-                    <p className="text-sm mt-2">
-                      <strong>Texture :</strong> {rockInfos[0].texture}
-                    </p>
-                  )}
-                  {rockInfos[0].mineraux_pincipaux && (
-                    <p className="text-sm mt-2">
-                      <strong>Minéraux principaux :</strong> {rockInfos[0].mineraux_pincipaux}
-                    </p>
-                  )}
-                  {rockInfos[0].mineraux_secondaires && (
-                    <p className="text-sm mt-2">
-                      <strong>Minéraux secondaires :</strong> {rockInfos[0].mineraux_secondaires}
-                    </p>
-                  )}
-                  {rockInfos[0].contexte && (
-                    <p className="text-sm mt-2">
-                      <strong>Contexte de formation :</strong> {rockInfos[0].contexte}
-                    </p>
-                  )}
-                  {rockInfos[0].astuces_terrain && (
-                    <p className="text-sm mt-2">
-                      <strong>Astuces terrain :</strong> {rockInfos[0].astuces_terrain}
-                    </p>
-                  )}
+                {/* --- Onglets --- */}
+                {rockInfos.length > 1 && (
+                  <div className="flex justify-center gap-2">
+                    {rockInfos.slice(0, 3).map((r, i) => (
+                      <button
+                        key={r.id ?? i}
+                        type="button"
+                        onClick={() => setActiveIdx(i)}
+                        className={[
+                          "px-3 py-1.5 rounded-lg text-sm border transition-colors",
+                          activeIdx === i
+                            ? "bg-green-600 text-white border-green-600"
+                            : "bg-transparent text-gray-200 border-gray-500 hover:border-gray-300"
+                        ].join(" ")}
+                        aria-pressed={activeIdx === i}
+                      >
+                        {`Top-${i + 1}`}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* --- Fiche détaillée de l'onglet actif --- */}
+                <article className={`rounded-xl border p-4 shadow-sm ${isCertain ? 'mt-2' : ''}`}>
+                  {(() => {
+                    const r = rockInfos[Math.min(activeIdx, rockInfos.length - 1)];
+                    return (
+                      <>
+                        {/* Affiche le nom seulement si ce n'est pas un cas 100% certain */}
+                        {!isCertain && (
+                          <h4 className="text-lg font-semibold text-center">
+                            {r.nom}
+                          </h4>
+                        )}
+
+                        {r.type && (
+                          <p className="text-sm mt-2">
+                            <strong>Type :</strong> {r.type}
+                          </p>
+                        )}
+                        {r.texture && (
+                          <p className="text-sm mt-2">
+                            <strong>Texture :</strong> {r.texture}
+                          </p>
+                        )}
+                        {r.mineraux_pincipaux && (
+                          <p className="text-sm mt-2">
+                            <strong>Minéraux principaux :</strong> {r.mineraux_pincipaux}
+                          </p>
+                        )}
+                        {r.mineraux_secondaires && (
+                          <p className="text-sm mt-2">
+                            <strong>Minéraux secondaires :</strong> {r.mineraux_secondaires}
+                          </p>
+                        )}
+                        {r.densite_g_cm3 && (
+                          <p className="text-sm mt-2">
+                            <strong>Densité (g/cm³) :</strong> {r.densite_g_cm3}
+                          </p>
+                        )}
+                        {r.durete_Mohs && (
+                          <p className="text-sm mt-2">
+                            <strong>Dureté (Mohs) :</strong> {r.durete_Mohs}
+                          </p>
+                        )}
+                        {r.contexte && (
+                          <p className="text-sm mt-2">
+                            <strong>Contexte de formation :</strong> {r.contexte}
+                          </p>
+                        )}
+                        {r.astuces_terrain && (
+                          <p className="text-sm mt-2">
+                            <strong>Astuces terrain :</strong> {r.astuces_terrain}
+                          </p>
+                        )}
+                      </>
+                    );
+                  })()}
                 </article>
-                
-                <div className="mt-3 grid gap-8 place-items-center">
-                  <hr className="my-6 border-gray-600/30 w-2/3 mx-auto" />
-                  <button aria-label="Nouveau scan"
-                    type="button"
-                    onClick={() => navigate('/', { replace: true })}
-                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors"
-                  >
-                    Nouveau scan
-                  </button>
-                </div>
+
+                {/* Séparateur + bouton */}
+                <hr className="my-6 border-gray-600/30 w-2/3 mx-auto" />
+                <button
+                  aria-label="Nouveau scan"
+                  type="button"
+                  onClick={() => navigate('/', { replace: true })}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors"
+                >
+                  Nouveau scan
+                </button>
               </div>
             )}
           </div>
