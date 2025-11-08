@@ -2,8 +2,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import { TransferStore } from "./lib/transfer";
 import { predict } from './services/inference/InferenceService';
+import type { GeoPoint } from "./types/observation";
 
-type NavStateScanPage = { file?: Blob} | null;
+type NavStateScanPage = { file: Blob; exifGeo?: GeoPoint } | null;
 
 function ScanPage() {
   const navigate = useNavigate();
@@ -104,7 +105,7 @@ function ScanPage() {
       anim = false
       setProgress(100);
       TransferStore.set(file);
-      navigate("/results", { state: { from: "scan", result } });
+      navigate("/results", { state: { from: "scan", result, exifGeo: state?.exifGeo } });
     } finally {
       //clean
       anim = false;

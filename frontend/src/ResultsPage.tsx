@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { TransferStore } from "./lib/transfer";
+import type { GeoPoint } from "./types/observation";
 
 const VITE_API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 
@@ -10,7 +11,9 @@ type PredictResult = {
   top1_conf: number;   // 0..1
   abstained: boolean;
 };
-type NavStateResults = { from?: string; result?: PredictResult; file?: Blob } | null;
+
+//type NavStateResults = { from?: string; result?: PredictResult; file?: Blob } | null;
+type NavStateResults = { from?: string, file?: Blob, result?: PredictResult; preview?: string; exifGeo?: GeoPoint } | null;
 
 function ResultsPage() {
   const navigate = useNavigate();
