@@ -9,8 +9,8 @@ export async function getBrowserPosition() {
   });
 
   return {
-    lat: position.coords.latitude,
-    lon: position.coords.longitude,
+    latitude: position.coords.latitude,
+    longitude: position.coords.longitude,
     altitude: position.coords.altitude ?? null,
     obtained_at: new Date().toISOString(),
     source: 'browser'
