@@ -1,8 +1,9 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useState, useEffect, useRef } from 'react'
 import { TransferStore } from "./lib/transfer";
+import type { GeoPoint } from "./types/observation";
 
-type NavStateScanMenu = { preview?: string; file?: Blob } | null;
+type NavStateScanMenu = { preview?: string; file?: Blob; exifGeo?: GeoPoint } | null;
 
 function ScanMenu() {
   const navigate = useNavigate();
@@ -88,7 +89,7 @@ function ScanMenu() {
   function debuterScan() {
     if (!readyBlob) return;
     TransferStore.set(readyBlob);
-    navigate("/scan", { state: { file: readyBlob } });
+    navigate("/scan", { state: { file: readyBlob, exifGeo: state?.exifGeo } });
   }
 
   function goAccueil() {

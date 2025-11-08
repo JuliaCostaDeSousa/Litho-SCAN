@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom';
 import './App.css'
 import { TransferStore } from "./lib/transfer";
+import { getMetadata } from './services/gps/ExifReader';
 
 function CameraModal({
   onShot,
@@ -133,9 +134,17 @@ function App() {
   async function processPickedFile(file: File) {
     if (!file.type.startsWith("image/")) return;
     if (file.size > 10 * 1024 * 1024) return;
+    
+    // 1) EXIF (sur le File original)
+    const exifGeo = await getMetadata(file); // GeoPoint | null
 
     const preview = URL.createObjectURL(file);     // preview instantanée
-    navigate("/confirm", { state: { preview } });  // tu gères la revoke côté /confirm
+
+    // 3) Conserver le File original pour la suite (analyse / export)
+    TransferStore.set(file);
+    
+    // 4) Passer l’info EXIF à la page suivante
+    navigate("/confirm", { state: { preview, exifGeo } }); // on gère la revoke côté /confirm
   }
 
   // Tente l’API moderne (Chrome/Android, Desktop Chrome/Edge…)
