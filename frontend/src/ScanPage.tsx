@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { TransferStore } from "./lib/transfer";
 import { predict } from './services/inference/InferenceService';
 import type { GeoPoint } from "./types/observation";
+import SquarePreview from "./components/SquarePreview"
 
 type NavStateScanPage = { file: Blob; exifGeo?: GeoPoint } | null;
 
@@ -118,13 +119,14 @@ function ScanPage() {
 	return (
 		<>
 			{preview && (
-				<img
-					src={preview}
-					alt="Photo à scanner"
-					style={{ maxWidth: 220, height: "auto" }}
-					decoding="async"
-					loading="eager"
-				/>
+        <SquarePreview
+        src={preview}
+        alt="Photo à scanner"
+        size={224}
+        fit="cover"         // crop centré, uniformisé style ImageNet
+        decoding="async"
+        loading="eager"
+        />
 			)}
 
 			<div className="mt-3">

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import './App.css'
 import { TransferStore } from "./lib/transfer";
 import { getMetadata } from './services/gps/ExifReader';
+import { imagenetCenterCrop224, makeObjectUrl } from "./utils/imagenet";
 
 function CameraModal({
   onShot,
@@ -22,10 +23,21 @@ function CameraModal({
     (async () => {
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" },
+          video: {
+            facingMode: { ideal: "environment" },
+            width:  { ideal: 1280, max: 1920 },
+            height: { ideal: 720,  max: 1080 },
+            // aspectRatio: 16/9, // optionnel
+          },
           audio: false,
         });
         if (videoRef.current) videoRef.current.srcObject = stream;
+        const track = stream.getVideoTracks()[0];
+          await track.applyConstraints?.({
+            width:  { ideal: 224, max: 224 },
+            height: { ideal: 224,  max: 224 },
+            // resizeMode: "crop-and-scale" // (pas partout supporté)
+          });
       } catch (e: any) {
         if (e?.name === "NotAllowedError") {
           setErr("Accès à la caméra refusé.");
@@ -137,8 +149,8 @@ function App() {
     
     // 1) EXIF (sur le File original)
     const exifGeo = await getMetadata(file); // GeoPoint | null
-
-    const preview = URL.createObjectURL(file);     // preview instantanée
+    const cropped224 = await imagenetCenterCrop224(file);
+    const preview = await makeObjectUrl(cropped224);     // preview instantanée
 
     // 3) Conserver le File original pour la suite (analyse / export)
     TransferStore.set(file);

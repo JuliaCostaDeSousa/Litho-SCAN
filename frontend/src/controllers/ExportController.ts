@@ -1,5 +1,7 @@
 import { generatePdf } from "../services/pdf/PdfService";
 import dateFormat from "dateformat";
+import type { IncludeFlags, ObservationForPdf } from "../types/observation"
+
 type ToastDeps = { toast?: { success(msg: string): void; error(msg: string): void } };
 
 function buildFilename(date: Date, label: string | null) {
@@ -21,15 +23,20 @@ function download(bytes: ArrayBuffer, name: string) {
   URL.revokeObjectURL(url);
 }
 
-export async function exportObservation(observation: any, deps?: ToastDeps): Promise<void> {
+
+export async function exportObservation(
+  observation: ObservationForPdf,
+  deps?: ToastDeps,
+  opts?: { include?: IncludeFlags }
+): Promise<void> {
   if (!observation?.photo)  throw new Error("PHOTO_MISSING");
   if (!observation?.result) throw new Error("RESULT_MISSING");
 
   try {
-    const bytes = await generatePdf(observation);
-    const pdfname = buildFilename(new Date(), observation.result.top1_label ?? "export");
+    const bytes = await generatePdf(observation, opts);   // ✅ passe { include: ... } tel quel
+    const pdfname = buildFilename(new Date(), observation.result.top1.label ?? "export");
     download(bytes, pdfname);
-    deps?.toast?.success("PDF exporté !");
+    deps?.toast?.success?.("PDF exporté !");
   } catch (error: unknown) {
     deps?.toast?.error?.("Échec de l’export PDF.");
     throw new Error("EXPORT_FAILED", { cause: error });

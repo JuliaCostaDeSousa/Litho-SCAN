@@ -1,15 +1,22 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { TransferStore } from "./lib/transfer";
-import type { GeoPoint } from "./types/observation";
+import type { GeoPoint, PredictResult, ExportResult, RockInfo } from "./types/observation";
+import { getBrowserPosition } from "./services/gps/GPSService";
+import SquarePreview from "./components/SquarePreview"
+import mapResultForExport from "./utils/mapResultsForExport"
 
 const VITE_API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 
-type PredictResult = {
-  top3: { index: number; label: string; prob: number; percent: number }[];
-  top1_label: string | null;
-  top1_conf: number;   // 0..1
-  abstained: boolean;
+type ExportNavState = {
+  from: "results";
+  exportResult: ExportResult;
+  geoCandidates?: {
+    browser?: string[]; // ex: ["48.85661, 2.35222", "±8 m", "source: browser"]
+    exif?: string[];   // ex: ["48.85661, 2.35222", "source: exif"]
+    manual?: string[]; // ex: ["Saisie: …"]
+  };
+  top1Rock: RockInfo;
 };
 
 //type NavStateResults = { from?: string; result?: PredictResult; file?: Blob } | null;
@@ -24,7 +31,8 @@ function ResultsPage() {
   const [infoLoading, setInfoLoading] = useState(false);
   const [infoError, setInfoError] = useState<string | null>(null);
   const [activeIdx, setActiveIdx] = useState(0);
-
+  const [exporting, setExporting] = useState(false);
+  
   const result = state?.result;
 
   const confByLabel = new Map(
@@ -54,10 +62,12 @@ function ResultsPage() {
     gres:     "Grès",
     schiste:  "Schiste",
   };
-  const prettyLabel = (lab?: string | null) =>
-    typeof lab === "string"
-      ? (MODEL_TO_DB[lab.toLowerCase() as keyof typeof MODEL_TO_DB] ?? lab)
-      : lab;
+
+  function prettyLabel(lab?: string | null): string {
+    if (typeof lab !== "string" || lab.trim() === "") return "—";
+    const m = MODEL_TO_DB[lab.toLowerCase() as keyof typeof MODEL_TO_DB];
+    return m ?? lab;
+  }
 
   // triplets { labelModel, nomDb, percent }
   const toQuery = modelLabels.map(lab => {
@@ -162,10 +172,50 @@ function ResultsPage() {
 
   if (!file) return <p>Redirection…</p>;
 
+  const canExport =
+    Boolean(file) &&
+    Boolean(result) &&
+    !result?.abstained &&
+    Boolean(result?.top1_label);
+
+
+  async function onExportPdfClick() {
+    if (!file || !result || isAbstained || exporting) return;
+    setExporting(true);
+    try {
+      // Geo candidates (idem ton code)
+      let browserLines: string[] | undefined;
+      try {
+        const pos = await getBrowserPosition();
+        if (pos) browserLines = buildGeoLines(pos.latitude, pos.longitude, pos.source);
+      } catch {}
+      let exifLines: string[] | undefined;
+      const exifPos = state?.exifGeo;
+      if (exifPos) exifLines = buildGeoLines(exifPos.latitude, exifPos.longitude, "EXIF");
+
+      const geoCandidates: NonNullable<ExportNavState>["geoCandidates"] = {};
+      if (browserLines?.length) geoCandidates.browser = browserLines;
+      if (exifLines?.length)    geoCandidates.exif    = exifLines;
+
+      // nouveau payload d’export
+      const exportResult: ExportResult = mapResultForExport(result, prettyLabel);
+      TransferStore.set(file);
+      navigate("/exportPdf", {
+        state: {
+          from: "results",
+          exportResult,
+          geoCandidates: Object.keys(geoCandidates).length ? geoCandidates : undefined,
+          top1Rock: rockInfos?.[0],
+        } satisfies NonNullable<ExportNavState>
+      });
+    } finally {
+      setExporting(false);
+    }
+  }
   return (
     <>
       {preview
-        ? <img src={preview} alt="Aperçu résultat" style={{ maxWidth: 240 }} />
+        ? <SquarePreview src={preview} alt="Photo scannee" size={224} fit="cover" decoding="async" loading="eager" />
         : <div className="w-60 h-40 bg-gray-800/40 rounded" aria-label="Aperçu indisponible" />
       }
       
@@ -284,9 +334,9 @@ function ResultsPage() {
                             <strong>Texture :</strong> {r.texture}
                           </p>
                         )}
-                        {r.mineraux_pincipaux && (
+                        {r.mineraux_principaux && (
                           <p className="text-sm mt-2">
-                            <strong>Minéraux principaux :</strong> {r.mineraux_pincipaux}
+                            <strong>Minéraux principaux :</strong> {r.mineraux_principaux}
                           </p>
                         )}
                         {r.mineraux_secondaires && (
@@ -319,7 +369,7 @@ function ResultsPage() {
                   })()}
                 </article>
 
-                {/* Séparateur + bouton */}
+                {/* Séparateur + boutons */}
                 <hr className="my-6 border-gray-600/30 w-2/3 mx-auto" />
                 <button
                   aria-label="Nouveau scan"
@@ -329,6 +379,33 @@ function ResultsPage() {
                 >
                   Nouveau scan
                 </button>
+
+                <button
+                  type="button"
+                  onClick={onExportPdfClick}
+                  disabled={!canExport || exporting}
+                  aria-busy={exporting}
+                  title={
+                    !result ? "Export indisponible : pas de résultat"
+                    : result.abstained ? "Pas d’export : aucune classe reconnue"
+                    : !result.top1_label ? "Pas d’export : label manquant"
+                    : undefined
+                  }
+                  className={[
+                    "px-4 py-2 rounded-lg font-medium transition-colors",
+                    (!canExport || exporting)
+                      ? "bg-gray-600 text-gray-300 cursor-not-allowed"
+                      : "bg-green-600 hover:bg-green-700 text-white"
+                  ].join(" ")}
+                >
+                  {exporting ? "Préparation…" : "Export PDF"}
+                </button>
+
+                {!canExport && (
+                  <p className="mt-2 text-xs text-gray-400">
+                    L’export s’active dès qu’une prédiction Top-1 est disponible.
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -339,3 +416,15 @@ function ResultsPage() {
 }
 
 export default ResultsPage
+
+function buildGeoLines(lat: number, lon: number, sourceLabel?: string): string[] {
+  const lines: string[] = [];
+  lines.push(fmtLatLon(lat, lon));                          // "48.85661, 2.35222"
+  if (sourceLabel) lines.push(`source: ${sourceLabel}`);    // "source: browser" | "source: exif"
+  return lines;
+}
+
+function fmtLatLon(lat: number, lon: number): string {
+  const f = (v: number) => v.toFixed(5); // 5 décimales, lisible
+  return `${f(lat)}, ${f(lon)}`;
+}
