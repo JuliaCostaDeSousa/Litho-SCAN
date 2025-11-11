@@ -21,11 +21,11 @@ export default function SquarePreview({
         width: size,
         height: size,
         borderRadius: 12,
-        overflow: "hidden",
         background: "rgba(0,0,0,0.08)",
       }}
     >
       <img
+        className="block w-full h-full object-cover rounded-none"
         src={src}
         alt={alt}
         {...imgProps}
@@ -35,6 +35,7 @@ export default function SquarePreview({
           objectFit: fit,           // "contain" ou "cover"
           objectPosition: "center", // centre (évite “on ne voit que le haut”)
           display: "block",
+          borderRadius: 0,
         }}
       />
     </div>

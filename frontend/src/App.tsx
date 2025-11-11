@@ -4,6 +4,8 @@ import './App.css'
 import { TransferStore } from "./lib/transfer";
 import { getMetadata } from './services/gps/ExifReader';
 import { imagenetCenterCrop224, makeObjectUrl } from "./utils/imagenet";
+import ImageButton from "./components/ui/ImageMaskedButton"; // ton bouton visuel
+import FramedPreview from "./components/ui/FramedPreview";
 
 function CameraModal({
   onShot,
@@ -64,7 +66,7 @@ function CameraModal({
 
 return (
   <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-    <div className="bg-white rounded-2xl p-4 w-full max-w-md grid gap-3">
+    <div className="bg-transparent rounded-2xl p-4 w-full max-w-md grid gap-3">
       <h2 className="text-lg font-semibold">Prendre une photo</h2>
 
       {err ? (
@@ -76,7 +78,7 @@ return (
           </ul>
         </div>
       ) : (
-        <video ref={videoRef} autoPlay playsInline className="w-full rounded-lg bg-black" />
+        <video ref={videoRef} autoPlay playsInline className="w-full rounded-none bg-black rounded-none" style={{ borderRadius: 0 }} />
       )}
 
       <div className="flex gap-2 justify-end">
@@ -192,69 +194,89 @@ function App() {
     galleryRef.current?.click();
   }
 
+  const FRAME_SIZE = 224;   // même cadre que FramedPreview
+  const STATUS_H   = 80;    // même hauteur réservée pour messages
+  const FRAME_PADDING = 0;
   return (
     <>
-      {error && (
-        <p role="alert" className="text-red-600 font-medium mb-3">
-          {error}
-        </p>
-      )}
-      {/* Importer (overlay input) */}
-      <div style={{ position: 'relative', display: 'inline-block' }}>
-        <button
-          type="button"
-          className="button-importPhoto"
-          onClick={onClickImport}>
-          Importer photo
-        </button>
-         <input
-          ref={galleryRef}
-          type="file"
-          accept="image/*"
-          onChange={onFileSelected}
-          style={{
-            position: "absolute",
-            inset: 0,
-            width: "100%",
-            height: "100%",
-            opacity: 0,
-            cursor: "pointer",
-            WebkitAppearance: "none",
-            appearance: "none",
-            zIndex: 10,
-          }}
-        />
-      </div>
-      {/* Prendre une photo (desktop: getUserMedia, mobile: fallback input capture) */}
-      <div style={{ position:'relative', display:'inline-block', marginTop:12 }}>
-        <button
-          type="button"
-          className="button-takePhoto"
-          onClick={takePhoto}
-        >
-          Prendre Photo
-        </button>
-
-        {isIOS && (
-          <input
-            ref={cameraRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={onFileSelected}
-            style={{ position:'absolute', inset:0, width:'100%', height:'100%', opacity:0, cursor:'pointer', WebkitAppearance:'none', appearance:'none', zIndex:10 }}
+      <section className="mx-auto max-w-md px-4 py-8 text-center space-y-4 ">
+        {/* PreviewArea — même gabarit que /confirm, imgSrc vide = juste le cadre */}
+        <div className="w-full flex justify-center">
+          <FramedPreview
+            size={FRAME_SIZE}           // ex: 224
+            innerPadding={FRAME_PADDING} // ex: 8 (doit matcher /confirm)
+            frameSrc="/ui/frame-224.png"
+            frameZ="above"              // le cadre passe bien au-dessus du logo
+            placeholder={
+              <div className="w-full h-full grid place-items-center p-2">
+                <img
+                  src="/ui/logo.png"
+                  alt="Litho-SCAN"
+                  className="w-full h-full object-contain scale-130"
+                  draggable={false}
+                />
+              </div>
+            }
           />
+        </div>
+
+      {/* StatusArea — même hauteur fixe pour éviter tout décalage (tu peux laisser vide) */}
+      <div
+        className="mx-auto w-full grid place-items-center"
+        style={{ height: STATUS_H }}
+        aria-live="polite"
+      >
+        {error ? (
+          <p role="alert" className="text-red-500 text-sm">{error}</p>
+        ) : (
+          <div className="h-0" />
         )}
       </div>
-      {showCamera && (
-        <CameraModal
-          onShot={handleShot}
-          onClose={() => setShowCamera(false)}
-          onFallback={isIOS ? () => cameraRef.current?.click() : undefined}
-        />
-      )}
-    </>
-  )
-}
 
-export default App
+      {/* Boutons — mêmes dimensions / spacing que /confirm */}
+      <div className="space-y-3">
+        {/* Importer */}
+        <div className="inline-block">
+          <input
+            ref={galleryRef}
+            type="file"
+            accept="image/*"
+            onChange={onFileSelected}
+            className="sr-only"
+          />
+          <ImageButton
+            src="/ui/btn-full.png"
+            label="Importer photo"
+            onClick={() => galleryRef.current?.click()}
+            width={320}
+            height={100}
+            hoverEffect={false}
+          />
+        </div>
+
+        {/* Prendre une photo */}
+        <div className="inline-block">
+          <ImageButton
+            src="/ui/btn-full.png"
+            label="Prendre Photo"
+            onClick={takePhoto}
+            width={320}
+            height={100}
+            hoverEffect={false}
+          />
+        </div>
+      </div>
+    </section>
+
+    {/* Modal caméra inchangé */}
+    {showCamera && (
+      <CameraModal
+        onShot={handleShot}
+        onClose={() => setShowCamera(false)}
+        onFallback={isIOS ? () => cameraRef.current?.click() : undefined}
+      />
+    )}
+  </>
+);
+}
+export default App;

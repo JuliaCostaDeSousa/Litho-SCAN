@@ -1,6 +1,11 @@
+export type Stashed = Blob | File | null;
+
 class Transfer {
-  private _file: Blob | null = null;
-  set(file: Blob) { this._file = file; }
-  take(): Blob | null { const f = this._file; this._file = null; return f; }
+  private _v: Stashed = null;
+  set(v: Stashed) { this._v = v; }
+  take(): Stashed { const v = this._v; this._v = null; return v; }
+  peek(): Stashed { return this._v; }        // <-- nouveau
+  clear() { this._v = null; }
 }
+
 export const TransferStore = new Transfer();

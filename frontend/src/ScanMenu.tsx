@@ -4,6 +4,8 @@ import { TransferStore } from "./lib/transfer";
 import type { GeoPoint } from "./types/observation";
 import SquarePreview from "./components/SquarePreview"
 import { imagenetCenterCrop224, makeObjectUrl } from "./utils/imagenet";
+import ImageButton from "./components/ui/ImageMaskedButton"; // ton bouton visuel
+import FramedPreview from "./components/ui/FramedPreview";
 
 type NavStateScanMenu = { preview?: string; file?: Blob; exifGeo?: GeoPoint } | null;
 
@@ -112,71 +114,105 @@ function ScanMenu() {
   function goAccueil() {
     navigate("/", { replace: true, state: null });
   }
+  
+  const FRAME_SIZE = 224;   // taille de ton cadre
+  const STATUS_H   = 80;    // hauteur réservée pour erreur / "préparation..."
 
   return (
     <>
-      <div>
-        {showUrl ? (
-          <SquarePreview
-            key={tries}
-            src={showUrl}
+      <section className="mx-auto max-w-md px-4 py-8 text-center space-y-4">
+        {/* PreviewArea — centré, hauteur fixe */}
+        <div
+          className="mx-auto grid place-items-center"
+          style={{ height: FRAME_SIZE }}
+        >
+          <FramedPreview
+            size={FRAME_SIZE}
+            frameSrc="/ui/frame-224.png"
+            imgSrc={showUrl}              // (undefined => placeholder interne)
             alt="Aperçu (entrée modèle)"
-            size={224}
-            fit="cover"
-            decoding="async"
-            loading="eager"
-            onLoad={initialFile ? undefined : handleLoad} // only when pas de file
+            onLoad={initialFile ? undefined : handleLoad}
             onError={() => {
               setReadyBlob(null);
               setErr("Impossible de charger l’aperçu.");
             }}
+            frameZ="above"
+            // innerPadding / rounded par défaut OK
           />
-        ) : (
-          <div className="w-[224px] h-[224px] rounded-xl bg-gray-800/40 grid place-items-center text-xs text-gray-400">
-            Aperçu en préparation…
-          </div>
-        )}
-      </div>
-
-      {err ? (
-        <div className="mt-2 text-red-600 text-sm">
-          {err}
-          <div className="mt-2 flex gap-8">
-            <button onClick={manualRetry} className="px-3 py-1 rounded bg-gray-200">
-              Réessayer
-            </button>
-            <button onClick={goAccueil} className="px-3 py-1 rounded bg-gray-200">
-              Revenir
-            </button>
-          </div>
-          <p className="mt-2 text-gray-600 text-xs">
-            Astuce : choisis la photo via <b>Fichiers/Stockage</b> plutôt que via l’app “Photos”.
-          </p>
         </div>
-      ) : tries > 0 ? (
+
+        {/* StatusArea — hauteur fixe pour éviter tout shift */}
         <div
-          className="w-[224px] h-[224px] rounded-xl bg-gray-800/40 grid place-items-center text-xs text-gray-400 animate-pulse"
+          className="mx-auto w-full grid place-items-center"
+          style={{ height: STATUS_H }}
           aria-live="polite"
         >
-          Aperçu en préparation…
+          {err ? (
+            <div className="max-w-sm w-full px-3 py-2 border border-red-500/30 text-red-200 bg-red-500/10 rounded-md text-sm">
+              <div>{err}</div>
+              <div className="mt-2 flex items-center justify-center gap-3">
+                <ImageButton
+                  src="/ui/btn-full.png"
+                  label="Réessayer"
+                  onClick={manualRetry}
+                  width={200}
+                  height={64}
+                  hoverEffect={false}
+                />
+                <ImageButton
+                  src="/ui/btn-full.png"
+                  label="Revenir"
+                  onClick={goAccueil}
+                  width={200}
+                  height={64}
+                  hoverEffect={false}
+                />
+              </div>
+              <p className="mt-2 text-[11px] text-red-200/80">
+                Astuce : choisis la photo via <b>Fichiers/Stockage</b> plutôt que via l’app “Photos”.
+              </p>
+            </div>
+          ) : tries > 0 ? (
+            <div className="text-xs text-neutral-300 animate-pulse">
+              Aperçu en préparation…
+            </div>
+          ) : (
+            // placeholder vide pour garder la hauteur
+            <div className="h-0" />
+          )}
         </div>
-      ) : null}
 
-      <div className="mt-3 flex gap-8">
-        <button type="button" className="button-accueil" onClick={goAccueil}>
-          Accueil
-        </button>
-        <button
-          type="button"
-          className="button-debuterScan"
-          onClick={debuterScan}
-          disabled={!readyBlob}
-          aria-busy={!readyBlob}
-          title={!readyBlob ? "Préparation de l’aperçu 224×224 en cours…" : undefined}
-        >
-          Débuter Scan
-        </button>
-      </div>
+        {/* Boutons principaux — ne bougent plus */}
+        <div className="space-y-3">
+          <div>
+            <ImageButton
+              src="/ui/btn-full.png"
+              label="Débuter Scan"
+              onClick={debuterScan}
+              width={320}
+              height={100}
+              disabled={!readyBlob}
+              hoverEffect={false}
+            />
+            {!readyBlob && (
+              <p className="mt-2 text-xs text-neutral-300">
+                Préparation de l’aperçu 224×224 en cours…
+              </p>
+            )}
+          </div>
+
+          <div>
+            <ImageButton
+              src="/ui/btn-full.png"
+              label="Accueil"
+              onClick={goAccueil}
+              width={320}
+              height={100}
+              hoverEffect={false}
+            />
+          </div>
+        </div>
+      </section>
     </>
   );
 }
