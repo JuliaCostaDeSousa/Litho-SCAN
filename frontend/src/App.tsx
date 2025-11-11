@@ -7,6 +7,9 @@ import { imagenetCenterCrop224, makeObjectUrl } from "./utils/imagenet";
 import ImageButton from "./components/ui/ImageMaskedButton"; // ton bouton visuel
 import FramedPreview from "./components/ui/FramedPreview";
 
+const SUPPORTED = ['image/jpeg','image/png','image/webp'];
+const isAndroid = /Android/i.test(navigator.userAgent);
+
 function CameraModal({
   onShot,
   onClose,
@@ -132,8 +135,26 @@ function App() {
 
   async function onFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const input = e.currentTarget;
-    const file = input.files?.[0];
+    const file = e.currentTarget.files?.[0];
     if (!file) return;
+
+    if (file.size > 20 * 1024 * 1024) {
+      setError("Fichier trop volumineux (> 20 Mo). Exporte la photo en JPEG/PNG depuis la galerie.");
+      try { e.currentTarget.value = ""; } catch {}
+      return;
+    }
+
+    const sniff = await sniffImageFormat(file);
+    const looksSupported = ['png','jpeg','webp'].includes(sniff);
+
+    if (!looksSupported) {
+      // Parfois le sniff est "unknown" mais le navigateur sait décoder (mauvais MIME/headers tronqués).
+      if (!(await canDecodeInBrowser(file))) {
+        setError("Format non supporté sur ce navigateur. Exporte la photo en JPEG/PNG depuis la galerie.");
+        try { e.currentTarget.value = ""; } catch {}
+        return;
+      }
+    }
     await processPickedFile(file);
     try { input.value = ""; } catch {}
   }
@@ -144,21 +165,71 @@ function App() {
     navigate("/confirm", { state: { file: blob } });
   }
 
-    // Logique commune de traitement (valide + nav)
-  async function processPickedFile(file: File) {
-    if (!file.type.startsWith("image/")) return;
-    if (file.size > 10 * 1024 * 1024) return;
-    
-    // 1) EXIF (sur le File original)
-    const exifGeo = await getMetadata(file); // GeoPoint | null
-    const cropped224 = await imagenetCenterCrop224(file);
-    const preview = await makeObjectUrl(cropped224);     // preview instantanée
+  async function sniffImageFormat(file: File): Promise<'jpeg'|'png'|'webp'|'heic'|'unknown'> {
+    const buf = await file.slice(0, 16).arrayBuffer();
+    const b = new Uint8Array(buf);
 
-    // 3) Conserver le File original pour la suite (analyse / export)
-    TransferStore.set(file);
-    
-    // 4) Passer l’info EXIF à la page suivante
-    navigate("/confirm", { state: { preview, exifGeo } }); // on gère la revoke côté /confirm
+    // PNG: 89 50 4E 47 0D 0A 1A 0A
+    if (b.length >= 8 && b[0]===0x89 && b[1]===0x50 && b[2]===0x4E && b[3]===0x47 &&
+        b[4]===0x0D && b[5]===0x0A && b[6]===0x1A && b[7]===0x0A) return 'png';
+
+    // JPEG: FF D8 FF
+    if (b.length >= 3 && b[0]===0xFF && b[1]===0xD8 && b[2]===0xFF) return 'jpeg';
+
+    // WebP: "RIFF" .... "WEBP"
+    const text = new TextDecoder().decode(b);
+    if (text.startsWith('RIFF') && text.includes('WEBP')) return 'webp';
+
+    // HEIC/HEIF (approx): bytes 4..7 = 'ftyp' + brand 'heic', 'heix', 'mif1', ...
+    if (text.slice(4,8) === 'ftyp') {
+      const brand = text.slice(8,12);
+      if (['heic','heix','hevc','hevx','mif1','msf1','heis','hevm'].includes(brand)) return 'heic';
+    }
+    return 'unknown';
+  }
+
+  async function canDecodeInBrowser(file: File): Promise<boolean> {
+    try {
+      if ('createImageBitmap' in window) {
+        const bmp = await createImageBitmap(file);
+        bmp.close?.();
+        return true;
+      }
+    } catch {}
+    // Fallback <img> + objectURL
+    return new Promise((resolve) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => { URL.revokeObjectURL(url); resolve(true); };
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(false); };
+      img.src = url;
+    });
+  }
+
+  // Logique commune de traitement (valide + nav)
+  async function processPickedFile(file: File) {
+    try {
+      // EXIF (ok si null)
+      const exifGeo = await getMetadata(file);
+
+      // ⚠️ protège le décodage/crop
+      let cropped224: Blob;
+      try {
+        cropped224 = await imagenetCenterCrop224(file);
+      } catch {
+        setError("Impossible de préparer l’aperçu (format/codec). Exporte la photo en JPEG/PNG.");
+        return;
+      }
+
+      const preview = await makeObjectUrl(cropped224);
+
+      // Conserver l’original pour la suite
+      TransferStore.set(file);
+
+      navigate("/confirm", { state: { preview, exifGeo } });
+    } catch {
+      setError("Échec de l’import. Réessaie avec une photo en JPEG/PNG/WebP.");
+    }
   }
 
   const FRAME_SIZE = 224;   // même cadre que FramedPreview
@@ -201,9 +272,9 @@ function App() {
       </div>
 
       {/* Boutons — mêmes dimensions / spacing que /confirm */}
-      <div className="space-y-3">
+      <div className="w-full max-w-[360px] mx-auto">
         {/* Importer */}
-        <div className="inline-block">
+        <div className="w-full max-w-[360px] mx-auto">
           <input
             ref={galleryRef}
             type="file"
@@ -215,20 +286,24 @@ function App() {
             src="/ui/btn-full.png"
             label="Importer photo"
             onClick={() => galleryRef.current?.click()}
-            width={320}
-            height={100}
+            fluid
+            minWidth={220}
+            maxWidth={360}
+            aspect={3.2}
             hoverEffect={false}
           />
         </div>
 
         {/* Prendre une photo */}
-        <div className="inline-block">
+        <div className="w-full max-w-[360px] mx-auto">
           <ImageButton
             src="/ui/btn-full.png"
             label="Prendre Photo"
             onClick={takePhoto}
-            width={320}
-            height={100}
+            fluid
+            minWidth={220}
+            maxWidth={360}
+            aspect={3.2}
             hoverEffect={false}
           />
         </div>

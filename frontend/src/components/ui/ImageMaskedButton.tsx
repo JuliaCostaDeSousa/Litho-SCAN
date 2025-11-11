@@ -5,15 +5,30 @@ type ImgBtnProps = {
   ariaLabel?: string;
   onClick?: () => void;
   className?: string;
+
+  // FIXE (héritage existant)
   width?: number;
   height?: number;
+
+  // NOUVEAU: mode fluide
+  fluid?: boolean;           // << si true: width:100% du conteneur
+  maxWidth?: number | string; // ex: 320 ou "22rem"
+  minWidth?: number | string; // ex: 200
+  aspect?: number;           // ratio w/h; par défaut déduit de width/height
+
   hoverEffect?: boolean;
   disabled?: boolean;
 };
 
 export default function ImageButton({
   src, label, ariaLabel, onClick,
-  className = "", width = 256, height = 80,
+  className = "",
+  width = 256,
+  height = 80,
+  fluid = false,
+  maxWidth,       // ex: 320
+  minWidth,       // ex: 200
+  aspect,         // ex: 3.2 (== 320/100)
   hoverEffect = false,
   disabled = false,
 }: ImgBtnProps) {
@@ -28,6 +43,26 @@ export default function ImageButton({
 
   const disabledCls = disabled ? "opacity-50 grayscale pointer-events-none" : "";
 
+  // Style sizing
+  const style: React.CSSProperties = {};
+  if (fluid) {
+    style.width = "100%";
+    if (typeof maxWidth !== "undefined") {
+      style.maxWidth = typeof maxWidth === "number" ? `${maxWidth}px` : maxWidth;
+    }
+    if (typeof minWidth !== "undefined") {
+      style.minWidth = typeof minWidth === "number" ? `${minWidth}px` : minWidth;
+    }
+    // garde un ratio stable (sinon “min-height” collapse)
+    const r = aspect ?? (width / height); // fallback sur tes dimensions “fixes”
+    // CSS moderne supporté: https://caniuse.com/mdn-css_properties_aspect-ratio
+    (style as any).aspectRatio = r;
+    // pas de height fixe en fluide
+  } else {
+    style.width = width;
+    style.height = height;
+  }
+
   return (
     <button
       type="button"
@@ -35,8 +70,8 @@ export default function ImageButton({
       aria-disabled={disabled || undefined}
       disabled={disabled}
       onClick={disabled ? undefined : onClick}
-      className={[base, disabledCls, className].join(" ")}
-      style={{ width, height }}
+      className={[base, disabledCls, className, fluid ? "w-full" : ""].join(" ")}
+      style={style}
     >
       <img
         src={src}

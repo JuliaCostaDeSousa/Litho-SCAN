@@ -1,1 +1,14 @@
 @import "tailwindcss";
+html {
+  scrollbar-gutter: stable;  /* pas both-edges */
+  background: #0b1116;       /* même teinte que ton fond global pour éviter toute bande */
+}
+
+body {
+  background: transparent;
+}
+
+/* Fallback pour navigateurs sans support (Safari iOS, etc.) */
+@supports not (scrollbar-gutter: stable) {
+  html { overflow-y: scroll; }
+}

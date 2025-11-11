@@ -8,7 +8,8 @@ import mapResultForExport from "./utils/mapResultsForExport"
 import FramedPreview from "./components/ui/FramedPreview"
 import ImageButton from "./components/ui/ImageMaskedButton"
 
-const VITE_API_BASE_URL = import.meta.env.VITE_API_BASE_URL
+const VITE_API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || `${window.location.origin}/api`;
 
 type ExportNavState = {
   from: "results";
@@ -100,9 +101,11 @@ export default function ResultsPage() {
           toQuery.map(item =>
             fetch(`${VITE_API_BASE_URL}/rocks?nom=${encodeURIComponent(item.nomDb)}`, {
               signal: ac.signal, headers: { Accept: "application/json" },
-            }).then(async r => {
+            }) .then(async r => {
               if (!r.ok) throw new Error(String(r.status));
-              const row = await r.json();
+              const json = await r.json();
+              const row = Array.isArray(json) ? json[0] : json; // ← support array/object
+              if (!row || Object.keys(row).length === 0) throw new Error("empty");
               return { item, row };
             })
           )
@@ -116,7 +119,11 @@ export default function ResultsPage() {
           if (hit) inOrder.push({ ...hit.value.row, __percent: q.percent });
         });
 
-        setRockInfos(inOrder);
+      setRockInfos(inOrder);
+      if (inOrder.length === 0) {
+        // Optional: minimal UX to indicate why there’s no card
+        setInfoError("Aucune fiche trouvée pour ces prédictions.");
+      }
       } catch (e: any) {
         if (e?.name !== "AbortError") { setRockInfos(null); setInfoError("Impossible de récupérer les fiches."); }
       } finally {
@@ -140,8 +147,10 @@ export default function ResultsPage() {
           src="/ui/btn-full.png"
           label="Retour à l’accueil"
           onClick={() => navigate("/")}
-          width={320}
-          height={100}
+          fluid
+          minWidth={220}
+          maxWidth={360}
+          aspect={3.2}
           hoverEffect={false}
         />
       </section>
@@ -185,9 +194,10 @@ export default function ResultsPage() {
   return (
     <section className="mx-auto max-w-4xl px-4 text-white">
       {/* Ligne du haut: preview (col 1) + prédictions (col 2) */}
-      <div className="grid grid-cols-[240px,1fr] gap-3 md:gap-4 items-start">
+      <div className="grid grid-cols-1 md:grid-cols-[240px,1fr] gap-4 items-start
+                      justify-items-center md:justify-items-start min-w-0">
         {/* Colonne 1 = PREVIEW */}
-        <aside className="col-start-1 justify-self-start">
+        <aside className="min-w-0 justify-self-center md:justify-self-center">
           <FramedPreview
             size={224}
             innerPadding={8}
@@ -198,50 +208,43 @@ export default function ResultsPage() {
           />
         </aside>
 
-        {/* Colonne 2 = PRÉDICTIONS (hauteur fixe + scroll interne) */}
-        <aside className="col-start-2 justify-self-stretch space-y-3 mt-2 sm:mt-13 -ml-1 md:-ml-0.5">
-          <div className="space-y-3 h-[160px] overflow-y-auto pr-2
-                          [scrollbar-color:theme(colors.white/.4)_transparent]
-                          [scrollbar-width:thin]">
-            {!!result && (
-              <>
-                <h2 className="text-xl font-semibold sticky top-0 bg-transparent/60 backdrop-blur-[1px] pb-1">
-                  {isAbstained
-                    ? "Image non reconnue"
-                    : `${prettyLabel(result?.top1_label) ?? "—"} — ${top1Percent}%`}
-                </h2>
+        {/* Colonne 2 = PRÉDICTIONS */}
+        <aside className="min-w-0 w-full">
+          <div className="w-full max-w-[520px] mx-auto">  {/* ← cap + centrage */}
+            <div className="space-y-3 max-h-[180px] md:h-[160px] overflow-y-auto pr-2
+                            [scrollbar-color:theme(colors.white/.4)_transparent]
+                            [scrollbar-width:thin] min-w-0">
+              {!!result && (
+                <>
+                  <h2 className="text-center md:text-left text-lg md:text-xl font-semibold sticky top-0 pb-1 truncate md:justify-self-center">
+                    {isAbstained ? "Image non reconnue"
+                                : `${prettyLabel(result?.top1_label) ?? "—"} — ${top1Percent}%`}
+                  </h2>
 
-                {!isAbstained && result && !isCertain && (() => {
-                  const alts = (result.top3 ?? []).filter(
-                    (t) =>
-                      (result.top1_label ?? "").toLowerCase() !== t.label.toLowerCase() &&
-                      (t.percent ?? 0) > 0
-                  );
-                  if (alts.length === 0) return null;
+                  {!isAbstained && result && !isCertain && (() => {
+                    const alts = (result.top3 ?? []).filter(
+                      (t) => (result.top1_label ?? "").toLowerCase() !== t.label.toLowerCase()
+                          && (t.percent ?? 0) > 0
+                    );
+                    if (!alts.length) return null;
 
-                  return (
-                    <div className="text-sm">
-                      <div className="font-medium">Autres prédictions</div>
-                      <ul className="mt-2 space-y-1">
-                        {alts.map((t) => (
-                          <li key={t.index} className="inline-flex justify-between gap-3">
-                            <span>{prettyLabel(t.label)}</span>
-                            <span className="font-semibold">{t.percent}%</span>
-                            <span></span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  );
-                })()}
-
-                {isAbstained && (
-                  <div className="text-sm opacity-90">
-                    Essaie un nouveau scan avec une photo plus nette / une autre lumière.
-                  </div>
-                )}
-              </>
-            )}
+                    return (
+                      <div className="text-sm min-w-0 md:justify-self-center">
+                        <div className="font-medium">Autres prédictions</div>
+                        <ul className="mt-2 space-y-1 md:justify-self-center">
+                          {alts.map((t) => (
+                            <li key={t.index} className="flex w-full items-center gap-3">
+                              <span className="truncate">{prettyLabel(t.label)}</span>
+                              <span className="font-semibold tabular-nums shrink-0">{t.percent}%</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    );
+                  })()}
+                </>
+              )}
+            </div>
           </div>
         </aside>
       </div>
@@ -267,8 +270,12 @@ export default function ResultsPage() {
                     src="/ui/btn-full.png"    // tu gardes le même PNG
                     label={`Top-${i + 1}`}    // “placeholder” ici = le label affiché
                     onClick={() => setActiveIdx(i)}
-                    width={130}               // ← adapte la taille
-                    height={56}               // ← adapte la taille
+                    /*width={130}               // ← adapte la taille
+                    height={56}               // ← adapte la taille*/
+                    fluid
+                    minWidth={220}
+                    maxWidth={360}
+                    aspect={3.2}
                     hoverEffect={false}       // cohérent avec le style actuel
                     className={isActive ? "" : "opacity-95"} // légère différence si tu veux
                   />
@@ -278,7 +285,7 @@ export default function ResultsPage() {
           </div>
         )}
 
-        {rockInfos && rockInfos.length > 0 && (
+        {rockInfos && rockInfos.length > 0 ? (
           <article
             className="w-full max-w-[560px] mx-auto rounded-xl border border-white/15 shadow-sm
                       h-[360px] sm:h-[420px] overflow-y-auto pr-3
@@ -337,7 +344,11 @@ export default function ResultsPage() {
               );
             })()}
           </article>
-        )}
+        ): rockInfos && rockInfos.length === 0 ? (
+          <p className="text-center text-sm text-white/80">
+            Aucune fiche trouvée pour ces prédictions.
+          </p>
+        ) : null}
       </section>
 
       {/* Actions (boutons) */}
@@ -347,8 +358,10 @@ export default function ResultsPage() {
             src="/ui/btn-full.png"
             label={exporting ? "Préparation…" : "Export PDF"}
             onClick={onExportPdfClick}
-            width={320}
-            height={100}
+            fluid
+            minWidth={220}
+            maxWidth={360}
+            aspect={3.2}
             hoverEffect={false}
             // @ts-ignore
             disabled={!canExport || exporting}
@@ -364,8 +377,10 @@ export default function ResultsPage() {
             src="/ui/btn-full.png"
             label="Accueil"
             onClick={() => navigate('/', { replace: true })}
-            width={320}
-            height={100}
+            fluid
+            minWidth={220}
+            maxWidth={360}
+            aspect={3.2}
             hoverEffect={false}
           />
         </div>

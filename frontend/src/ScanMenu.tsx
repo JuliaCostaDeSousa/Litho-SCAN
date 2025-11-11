@@ -154,16 +154,20 @@ function ScanMenu() {
                   src="/ui/btn-full.png"
                   label="Réessayer"
                   onClick={manualRetry}
-                  width={200}
-                  height={64}
+                  fluid
+                  minWidth={220}
+                  maxWidth={360}
+                  aspect={3.2}
                   hoverEffect={false}
                 />
                 <ImageButton
                   src="/ui/btn-full.png"
                   label="Revenir"
                   onClick={goAccueil}
-                  width={200}
-                  height={64}
+                  fluid
+                  minWidth={220}
+                  maxWidth={360}
+                  aspect={3.2}
                   hoverEffect={false}
                 />
               </div>
@@ -188,8 +192,10 @@ function ScanMenu() {
               src="/ui/btn-full.png"
               label="Débuter Scan"
               onClick={debuterScan}
-              width={320}
-              height={100}
+              fluid
+              minWidth={220}
+              maxWidth={360}
+              aspect={3.2}
               disabled={!readyBlob}
               hoverEffect={false}
             />
@@ -205,8 +211,10 @@ function ScanMenu() {
               src="/ui/btn-full.png"
               label="Accueil"
               onClick={goAccueil}
-              width={320}
-              height={100}
+              fluid
+              minWidth={220}
+              maxWidth={360}
+              aspect={3.2}
               hoverEffect={false}
             />
           </div>
