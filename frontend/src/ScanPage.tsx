@@ -3,8 +3,26 @@ import { useState, useEffect, useRef } from 'react';
 import { TransferStore } from "./lib/transfer";
 import { predict } from './services/inference/InferenceService';
 import type { GeoPoint } from "./types/observation";
+import FramedPreview from "./components/ui/FramedPreview";
+import ImageButton from "./components/ui/ImageMaskedButton";
 
 type NavStateScanPage = { file: Blob; exifGeo?: GeoPoint } | null;
+
+const FRAME_SIZE = 224;    // cohérent avec / et /confirm
+const FRAME_PADDING = 8;   // marge intérieure du cadre
+const STATUS_H = 72;       // réserve d’espace pour le message
+
+const nextPaint = () =>
+  new Promise<void>(resolve =>
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+  );
+const abortableSleep = (ms: number, signal: AbortSignal) =>
+  new Promise<void>((resolve, reject) => {
+    if (ms <= 0) return resolve();
+    const id = setTimeout(resolve, ms);
+    const onAbort = () => { clearTimeout(id); reject(new DOMException("Aborted","AbortError")); };
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
 
 function ScanPage() {
   const navigate = useNavigate();
@@ -15,9 +33,10 @@ function ScanPage() {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
+  const didNav = useRef(false);
 
-	useEffect(() => {
-    // 1) d’abord via state ; 2) sinon via le stash en secours
+  // 1) Récupération du fichier (state prioritaire, sinon stash)
+  useEffect(() => {
     const fromState = state?.file ?? null;
     const fromStash = TransferStore.take();
     const found = fromState ?? fromStash ?? null;
@@ -29,6 +48,7 @@ function ScanPage() {
     setFile(found);
   }, [state, navigate]);
 
+  // 2) Preview locale blob
   useEffect(() => {
     if (!file) return;
     const url = URL.createObjectURL(file);
@@ -36,23 +56,24 @@ function ScanPage() {
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
+  // 3) Lancement analyse + progression animée
   useEffect(() => {
     if (!file) return;
     prepareAnalysis(file);
     return () => abortRef.current?.abort();
   }, [file]);
 
-  if (!file) {
-    return <p>Redirection…</p>;
-  }
-
   function annulerScan() {
     abortRef.current?.abort();
     navigate('/', { replace: true, state: null });
   }
 
-  function reessayerScan() {    
-		if (!file) return;
+  function goAccueil() {
+    navigate('/', { replace: true, state: null });
+  }
+
+  function reessayerScan() {
+    if (!file) return;
     abortRef.current?.abort();
     prepareAnalysis(file);
   }
@@ -74,24 +95,24 @@ function ScanPage() {
         setLoading(false);
       }
     })();
-	}
+  }
 
   async function launchAnalysis(file: Blob, signal: AbortSignal) {
-    // Exemple: décoder une bitmap (utile pour vérifier la lisibilité du blob)
-    // Tip: createImageBitmap respecte souvent mieux les blobs que <img> sur Android
+    const t0 = performance.now();
+    // petit check de décodage pour valider le blob
     const bmp = await createImageBitmap(file).catch(() => { throw new Error("Impossible de décoder l'image."); });
-    bmp.close(); // on n’en a pas besoin plus longtemps
+    bmp.close();
     setProgress(10);
     if (signal.aborted) throw new DOMException("Aborted", "AbortError");
-    // Progression simulée (remplace par ton vrai algo / upload / worker…)
 
-    // (on "race" entre predict et l'abort)
+    // abort-race
     let abortHandler: (() => void) | null = null;
     const raceAbort = new Promise<never>((_, rej) => {
       abortHandler = () => rej(new DOMException("Aborted", "AbortError"));
       signal.addEventListener('abort', abortHandler, { once: true });
-      });
-    // animation entre 10 et 95%
+    });
+
+    // animation de progression (cosmétique)
     let anim = true;
     (async () => {
       while (anim && !signal.aborted) {
@@ -99,59 +120,97 @@ function ScanPage() {
         setProgress(p => Math.min(95, p + 2));
       }
     })();
+
     try {
       const result = await Promise.race([predict(file), raceAbort]);
       if (signal.aborted) throw new DOMException("Aborted", "AbortError");
-      anim = false
+      anim = false;
       setProgress(100);
+
+      await nextPaint(); // 1er cycle jusqu'à 100 %
+      // si cycle hyper rapide, on relance un sleep
+      const elapsed = performance.now() - t0;
+      const MIN_TOTAL = 900; // ms you want the screen to be visible at least
+      const remaining = Math.max(0, MIN_TOTAL - elapsed);
+      await abortableSleep(remaining, signal);
+      
+      // vers /results
       TransferStore.set(file);
-      navigate("/results", { state: { from: "scan", result, exifGeo: state?.exifGeo } });
+      if (!didNav.current) {
+        didNav.current = true;
+        navigate("/results", { state: { from: "scan", result, file, exifGeo: state?.exifGeo } });
+      }
     } finally {
-      //clean
       anim = false;
       if (abortHandler) signal.removeEventListener('abort', abortHandler);
     }
-  } 
+  }
 
-  if (!file) return <p>Redirection…</p>;
+  if (!file) return <p className="text-white text-center">Redirection…</p>;
 
-	return (
-		<>
-			{preview && (
-				<img
-					src={preview}
-					alt="Photo à scanner"
-					style={{ maxWidth: 220, height: "auto" }}
-					decoding="async"
-					loading="eager"
-				/>
-			)}
+  return (
+    <section className="mx-auto max-w-md px-4 py-8 text-center text-white">
+      {/* Zone de preview cadrée (fixe, pas de layout-shift) */}
+      <div className="w-full flex justify-center place-items-center">
+        <FramedPreview
+          size={FRAME_SIZE}
+          innerPadding={FRAME_PADDING}
+          frameSrc="/ui/frame-224.png"
+          frameZ="above"
+          imgSrc={preview} // la photo s’affiche pendant l’analyse
+          alt="Photo à scanner"
+        />
+      </div>
 
-			<div className="mt-3">
-				{loading ? (
-					<div>Analyse en cours… {progress}%</div>
-				) : error ? (
-					<div className="text-red-600">Erreur : {error}</div>
-				) : (
-					<div>Prêt ✅</div>
-				)}
-			</div>
+      {/* Zone statut fixe */}
+      <div
+        className="mx-auto w-full grid place-items-center mt-4"
+        style={{ height: STATUS_H }}
+        aria-live="polite"
+      >
+        {loading ? (
+          <div className="text-white/90">Analyse en cours… {progress}%</div>
+        ) : error ? (
+          <div className="text-red-300">
+            Erreur : {error}{" "}
+            <button
+              type="button"
+              onClick={reessayerScan}
+              className="underline decoration-dotted underline-offset-4 hover:opacity-90"
+            >
+              Réessayer
+            </button>
+          </div>
+        ) : (
+          <div className="text-white/90">Prêt ✅</div>
+        )}
+      </div>
 
-			<div className="mb-3 flex gap-8">
-				<button className="button-annulerScan" onClick={annulerScan} type="button">
-					Annuler
-				</button>
-				<button
-					className="button-reessayerScan"
-					onClick={reessayerScan}
-					type="button"
-					disabled={loading || !error}
-				>
-					Réessayer
-				</button>
-			</div>
-		</>
-	);
+      {/* Boutons principaux en image */}
+      <div className="space-y-3">
+        <div className="inline-block">
+          <ImageButton
+            src="/ui/btn-full.png"
+            label="Annuler"
+            onClick={annulerScan}
+            width={320}
+            height={100}
+            hoverEffect={false}
+          />
+        </div>
+        <div className="inline-block">
+          <ImageButton
+            src="/ui/btn-full.png"
+            label="Accueil"
+            onClick={goAccueil}
+            width={320}
+            height={100}
+            hoverEffect={false}
+          />
+        </div>
+      </div>
+    </section>
+  );
 }
 
-export default ScanPage
+export default ScanPage;

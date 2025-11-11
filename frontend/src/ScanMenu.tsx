@@ -2,6 +2,9 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useState, useEffect, useRef } from 'react'
 import { TransferStore } from "./lib/transfer";
 import type { GeoPoint } from "./types/observation";
+import { imagenetCenterCrop224, makeObjectUrl } from "./utils/imagenet";
+import ImageButton from "./components/ui/ImageMaskedButton";
+import FramedPreview from "./components/ui/FramedPreview";
 
 type NavStateScanMenu = { preview?: string; file?: Blob; exifGeo?: GeoPoint } | null;
 
@@ -10,42 +13,47 @@ function ScanMenu() {
   const { state } = useLocation() as { state?: NavStateScanMenu };
   const initialUrl = state?.preview;
   const initialFile = state?.file;
-
+  const [previewModelUrl, setPreviewModelUrl] = useState<string>();
   const [src, setSrc] = useState<string | undefined>(initialUrl);
   const [err, setErr] = useState<string | null>(null);
   const [readyBlob, setReadyBlob] = useState<Blob | null>(null);
-
   const [tries, setTries] = useState(0);
+  const showUrl = initialFile ? previewModelUrl : src;
 
-  // Si pas d’URL → retour à l’accueil
   useEffect(() => {
-    if (!initialUrl && !initialFile) navigate("/", { replace: true, state: null });
+    if (!initialUrl && !initialFile) {
+      navigate("/", { replace: true, state: null });
+    }
   }, [initialUrl, initialFile, navigate]);
-
-  const lastUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!initialFile) return;
-    setReadyBlob(initialFile);
+    let revokeModel: string | undefined;
+    let cancelled = false;
 
-    const next = URL.createObjectURL(initialFile);
-
-    // révoque l'ancienne si présente
-    if (lastUrlRef.current && lastUrlRef.current !== next) {
-        URL.revokeObjectURL(lastUrlRef.current);
+    (async () => {
+      try {
+        const croppedBlob = await imagenetCenterCrop224(initialFile);
+        if (cancelled) return;
+        const modelUrl = await makeObjectUrl(croppedBlob);
+        if (cancelled) return;
+        revokeModel = modelUrl;
+        setPreviewModelUrl(modelUrl);
+        setReadyBlob(croppedBlob);
+      } catch {
+        if (!cancelled) {
+          setErr("Impossible de préparer l’aperçu (crop 224×224).");
+          setReadyBlob(null);
+        }
       }
-      lastUrlRef.current = next;
-      setSrc(next);
+    })();
+
+    return () => { cancelled = true; if (revokeModel) URL.revokeObjectURL(revokeModel); };
   }, [initialFile]);
 
   useEffect(() => {
-    return () => {
-      if (src) URL.revokeObjectURL(src);
-      if (lastUrlRef.current && lastUrlRef.current !== src) {
-        URL.revokeObjectURL(lastUrlRef.current);
-      }
-    };
-  }, [src]);
+    if (previewModelUrl) setErr(null);
+  }, [previewModelUrl]);
 
   // Quand l’image a VRAIMENT chargé, re-encode en JPEG pour obtenir un Blob stable
   async function handleLoad(e: React.SyntheticEvent<HTMLImageElement>) {
@@ -59,11 +67,21 @@ function ScanMenu() {
       const ctx = canvas.getContext("2d")!;
       ctx.drawImage(img, 0, 0);
 
-      const blob: Blob = await new Promise((res, rej) =>
-        canvas.toBlob(b => b ? res(b) : rej(new Error("toBlob failed")), "image/jpeg", 0.92)
+      const originalBlob: Blob = await new Promise((res, rej) =>
+        canvas.toBlob(b => (b ? res(b) : rej(new Error("toBlob failed"))), "image/jpeg", 0.92)
       );
-      setReadyBlob(blob);           // Blob prêt pour /scan
-    } catch (e) {
+
+      // aligne avec ImageNet
+      const cropped = await imagenetCenterCrop224(originalBlob);
+      setReadyBlob(cropped);
+
+      // (optionnel) montrer aussi l’aperçu modèle si tu n’as pas initialFile
+      const modelUrl = URL.createObjectURL(cropped);
+      setPreviewModelUrl(prev => {
+        if (prev) URL.revokeObjectURL(prev);
+        return modelUrl;
+      });
+    } catch {
       setErr("Impossible de préparer l’aperçu (re-encodage)");
       setReadyBlob(null);
     }
@@ -95,61 +113,105 @@ function ScanMenu() {
   function goAccueil() {
     navigate("/", { replace: true, state: null });
   }
+  
+  const FRAME_SIZE = 224;   // taille de ton cadre
+  const STATUS_H   = 80;    // hauteur réservée pour erreur / "préparation..."
 
   return (
     <>
-      <div>
-        {src ? (
-          <img
-            key={tries}
-            src={src}
-            alt="Aperçu"
-            style={{ maxWidth: 220, height: "auto" }}
-            decoding="async"
-            loading="eager"
-            onLoad={initialFile ? undefined : handleLoad}   // ⬅️ pas de re-encode si file
+      <section className="mx-auto max-w-md px-4 py-8 text-center space-y-4">
+        {/* PreviewArea — centré, hauteur fixe */}
+        <div
+          className="mx-auto grid place-items-center"
+          style={{ height: FRAME_SIZE }}
+        >
+          <FramedPreview
+            size={FRAME_SIZE}
+            frameSrc="/ui/frame-224.png"
+            imgSrc={showUrl}              // (undefined => placeholder interne)
+            alt="Aperçu (entrée modèle)"
+            onLoad={initialFile ? undefined : handleLoad}
             onError={() => {
               setReadyBlob(null);
-              setErr("Impossible de charger l’aperçu depuis la galerie.");
+              setErr("Impossible de charger l’aperçu.");
             }}
+            frameZ="above"
+            // innerPadding / rounded par défaut OK
           />
-        ) : (
-          <div>Pas d’aperçu</div>
-        )}
-      </div>
-
-      {err ? (
-        <div className="mt-2 text-red-600 text-sm">
-          {err}
-          <div className="mt-2 flex gap-8">
-            <button onClick={manualRetry} className="px-3 py-1 rounded bg-gray-200">
-              Réessayer
-            </button>
-            <button onClick={goAccueil} className="px-3 py-1 rounded bg-gray-200">
-              Revenir
-            </button>
-          </div>
-          <p className="mt-2 text-gray-600 text-xs">
-            Astuce : choisis la photo via <b>Fichiers/Stockage</b> plutôt que via l’app “Photos”.
-          </p>
         </div>
-      ) : tries > 0 ? (
-        <div className="text-sm text-gray-500">Chargement de l’aperçu…</div>
-      ) : null}
 
-      <div className="mt-3 flex gap-8">
-        <button type="button" className="button-accueil" onClick={goAccueil}>
-          Accueil
-        </button>
-        <button
-          type="button"
-          className="button-debuterScan"
-          onClick={debuterScan}
-          disabled={!readyBlob}
+        {/* StatusArea — hauteur fixe pour éviter tout shift */}
+        <div
+          className="mx-auto w-full grid place-items-center"
+          style={{ height: STATUS_H }}
+          aria-live="polite"
         >
-          Débuter Scan
-        </button>
-      </div>
+          {err ? (
+            <div className="max-w-sm w-full px-3 py-2 border border-red-500/30 text-red-200 bg-red-500/10 rounded-md text-sm">
+              <div>{err}</div>
+              <div className="mt-2 flex items-center justify-center gap-3">
+                <ImageButton
+                  src="/ui/btn-full.png"
+                  label="Réessayer"
+                  onClick={manualRetry}
+                  width={200}
+                  height={64}
+                  hoverEffect={false}
+                />
+                <ImageButton
+                  src="/ui/btn-full.png"
+                  label="Revenir"
+                  onClick={goAccueil}
+                  width={200}
+                  height={64}
+                  hoverEffect={false}
+                />
+              </div>
+              <p className="mt-2 text-[11px] text-red-200/80">
+                Astuce : choisis la photo via <b>Fichiers/Stockage</b> plutôt que via l’app “Photos”.
+              </p>
+            </div>
+          ) : tries > 0 ? (
+            <div className="text-xs text-neutral-300 animate-pulse">
+              Aperçu en préparation…
+            </div>
+          ) : (
+            // placeholder vide pour garder la hauteur
+            <div className="h-0" />
+          )}
+        </div>
+
+        {/* Boutons principaux — ne bougent plus */}
+        <div className="space-y-3">
+          <div>
+            <ImageButton
+              src="/ui/btn-full.png"
+              label="Débuter Scan"
+              onClick={debuterScan}
+              width={320}
+              height={100}
+              disabled={!readyBlob}
+              hoverEffect={false}
+            />
+            {!readyBlob && (
+              <p className="mt-2 text-xs text-neutral-300">
+                Préparation de l’aperçu 224×224 en cours…
+              </p>
+            )}
+          </div>
+
+          <div>
+            <ImageButton
+              src="/ui/btn-full.png"
+              label="Accueil"
+              onClick={goAccueil}
+              width={320}
+              height={100}
+              hoverEffect={false}
+            />
+          </div>
+        </div>
+      </section>
     </>
   );
 }
