@@ -78,20 +78,6 @@ function ScanPage() {
     prepareAnalysis(file);
   }
 
-  function sleepWithAbort(ms: number, signal: AbortSignal) {
-    return new Promise<void>((resolve, reject) => {
-      const id = setTimeout(() => {
-        signal.removeEventListener('abort', onAbort);
-        resolve();
-      }, ms);
-      const onAbort = () => {
-        clearTimeout(id);
-        reject(new DOMException('Aborted', 'AbortError'));
-      };
-      signal.addEventListener('abort', onAbort, { once: true });
-    });
-  }
-
   function prepareAnalysis(blob: Blob) {
     if (!blob) return;
     setLoading(true);

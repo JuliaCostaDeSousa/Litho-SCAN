@@ -2,9 +2,8 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useState, useEffect, useRef } from 'react'
 import { TransferStore } from "./lib/transfer";
 import type { GeoPoint } from "./types/observation";
-import SquarePreview from "./components/SquarePreview"
 import { imagenetCenterCrop224, makeObjectUrl } from "./utils/imagenet";
-import ImageButton from "./components/ui/ImageMaskedButton"; // ton bouton visuel
+import ImageButton from "./components/ui/ImageMaskedButton";
 import FramedPreview from "./components/ui/FramedPreview";
 
 type NavStateScanMenu = { preview?: string; file?: Blob; exifGeo?: GeoPoint } | null;

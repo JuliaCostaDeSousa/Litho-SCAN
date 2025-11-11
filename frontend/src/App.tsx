@@ -161,39 +161,6 @@ function App() {
     navigate("/confirm", { state: { preview, exifGeo } }); // on gère la revoke côté /confirm
   }
 
-  // Tente l’API moderne (Chrome/Android, Desktop Chrome/Edge…)
-  async function pickImage() {
-    // @ts-ignore: API expérimentale selon TS
-    if (!window.showOpenFilePicker) throw new Error("FSA not supported");
-
-    // @ts-ignore
-    const [handle] = await window.showOpenFilePicker({
-      multiple: false,
-      types: [{
-        description: "Images",
-        accept: { "image/*": [".png", ".jpg", ".jpeg", ".webp", ".heic", ".heif", ".avif"] }
-      }],
-      excludeAcceptAllOption: false,
-    });
-    const file: File = await handle.getFile();
-    await processPickedFile(file);
-  }
-
-  async function onClickImport() {
-    try {
-      // essaie d’abord l’API moderne (souvent plus fiable avec Google Photos / cloud)
-      // @ts-ignore
-      if (window.showOpenFilePicker) {
-        await pickImage();
-        return;
-      }
-    } catch (err) {
-      console.warn("pickImage failed, fallback to input:", err);
-    }
-    // fallback universel
-    galleryRef.current?.click();
-  }
-
   const FRAME_SIZE = 224;   // même cadre que FramedPreview
   const STATUS_H   = 80;    // même hauteur réservée pour messages
   const FRAME_PADDING = 0;

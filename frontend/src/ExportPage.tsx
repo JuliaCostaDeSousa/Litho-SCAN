@@ -57,20 +57,7 @@ function ExportPage() {
     const n = Number(s.replace(",", ".").trim());
     return Number.isFinite(n) ? n : undefined;
   }
-  const fmtDeg5 = (n?: number) => (typeof n === "number" ? n.toFixed(5) : "");
-  const fmtAlt0 = (n?: number) => (typeof n === "number" ? String(Math.round(n)) : "");
 
-  function limitDecimals(raw: string, max = 5): string {
-    if (!raw) return raw;
-    // on garde le séparateur saisi par l’utilisateur (',' ou '.')
-    const sep = raw.includes(",") ? "," : ".";
-    const [sign, rest] = raw.startsWith("-") ? ["-", raw.slice(1)] : ["", raw];
-    const parts = rest.split(/[.,]/);
-    if (parts.length === 1) return sign + parts[0]; // pas de décimales
-    const [intPart, fracRaw] = parts;
-    const frac = fracRaw.slice(0, max); // tronque à max décimales
-    return sign + intPart + sep + frac;
-  }
   function validateDecimal(raw: string, opts?: {
     required?: boolean; min?: number; max?: number; label?: string;
   }): { num?: number; err?: string } {

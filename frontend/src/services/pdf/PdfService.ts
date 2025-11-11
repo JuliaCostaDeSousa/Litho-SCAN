@@ -1,5 +1,5 @@
 import { jsPDF } from "jspdf";
-import type { ObservationForPdf, IncludeFlags } from "../../types/observation";
+import type { ObservationForPdf } from "../../types/observation";
 
 function titleWithRule(
   pdf: jsPDF,
@@ -136,16 +136,6 @@ function parseSimpleGeo(lines?: string[]) {
 const fmtDeg = (n?: number) => (typeof n === "number" ? n.toFixed(5) : undefined);
 const fmtAlt = (n?: number) => (typeof n === "number" ? String(Math.round(n)) : undefined);
 
-function h2(pdf: jsPDF, txt: string, x: number, y: number) {
-  pdf.setFont("times", "bold"); pdf.setFontSize(14); pdf.text(txt, x, y);
-  return y + 10;
-}
-function p(pdf: jsPDF, txt: string, x: number, y: number, w: number, fs=12) {
-  pdf.setFont("times", "normal"); pdf.setFontSize(fs);
-  const wrapped = pdf.splitTextToSize(txt, w);
-  pdf.text(wrapped, x, y);
-  return y + wrapped.length * 5;
-}
 function kv(
   pdf: jsPDF,
   label: string,
@@ -207,11 +197,7 @@ async function cropTo224Square(blob: Blob): Promise<HTMLCanvasElement> {
 
 export async function generatePdf(
   observation: ObservationForPdf,
-  opts?: { include?: IncludeFlags }
 ): Promise<ArrayBuffer> {
-  // flags optionnels (photo & top1 sont obligatoires par design de ta page)
-  const include = { top3: true, coords: true, notes: true, ...(opts?.include ?? {}) };
-
   const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
   const margin = 12;
   const pageW = pdf.internal.pageSize.getWidth();

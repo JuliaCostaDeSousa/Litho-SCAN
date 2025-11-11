@@ -1,10 +1,3 @@
-type FitMode = "cover" | "contain";
-
-type SquarePreviewProps = React.ImgHTMLAttributes<HTMLImageElement> & {
-  size?: number;             // défaut 224
-  fit?: FitMode;             // "cover" (crop centré) | "contain" (letterbox)
-};
-
 export default function SquarePreview({
   src,
   alt = "",

@@ -25,8 +25,8 @@ export default function ResultsPage() {
   const [file, setFile] = useState<Blob | null>(null);
   const [preview, setPreview] = useState<string>();
   const [rockInfos, setRockInfos] = useState<any[] | null>(null);
-  const [infoLoading, setInfoLoading] = useState(false);
-  const [infoError, setInfoError] = useState<string | null>(null);
+  const [, setInfoLoading] = useState(false);
+  const [, setInfoError] = useState<string | null>(null);
   const [activeIdx, setActiveIdx] = useState(0);
   const [exporting, setExporting] = useState(false);
   const didInit = useRef(false);

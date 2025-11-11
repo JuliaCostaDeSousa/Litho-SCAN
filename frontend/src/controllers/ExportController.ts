@@ -1,6 +1,6 @@
 import { generatePdf } from "../services/pdf/PdfService";
 import dateFormat from "dateformat";
-import type { IncludeFlags, ObservationForPdf } from "../types/observation"
+import type { ObservationForPdf } from "../types/observation"
 
 type ToastDeps = { toast?: { success(msg: string): void; error(msg: string): void } };
 
@@ -27,13 +27,12 @@ function download(bytes: ArrayBuffer, name: string) {
 export async function exportObservation(
   observation: ObservationForPdf,
   deps?: ToastDeps,
-  opts?: { include?: IncludeFlags }
 ): Promise<void> {
   if (!observation?.photo)  throw new Error("PHOTO_MISSING");
   if (!observation?.result) throw new Error("RESULT_MISSING");
 
   try {
-    const bytes = await generatePdf(observation, opts);   // ✅ passe { include: ... } tel quel
+    const bytes = await generatePdf(observation);
     const pdfname = buildFilename(new Date(), observation.result.top1.label ?? "export");
     download(bytes, pdfname);
     deps?.toast?.success?.("PDF exporté !");
