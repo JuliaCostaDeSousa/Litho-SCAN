@@ -7,7 +7,6 @@ export default function AppLayout() {
   // Hauteurs standard (doivent matcher h-20 et h-14)
   const HEADER_H = 80; // px (5rem = h-20)
   const FOOTER_H = 56; // px (3.5rem = h-14)
-  const MIN_MAIN = 520;
 
   return (
     <div className="relative min-h-screen flex flex-col">

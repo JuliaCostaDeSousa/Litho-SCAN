@@ -7,9 +7,6 @@ import { imagenetCenterCrop224, makeObjectUrl } from "./utils/imagenet";
 import ImageButton from "./components/ui/ImageMaskedButton"; // ton bouton visuel
 import FramedPreview from "./components/ui/FramedPreview";
 
-const SUPPORTED = ['image/jpeg','image/png','image/webp'];
-const isAndroid = /Android/i.test(navigator.userAgent);
-
 function CameraModal({
   onShot,
   onClose,
