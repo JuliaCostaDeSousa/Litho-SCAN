@@ -188,23 +188,27 @@ function ScanPage() {
 
       {/* Boutons principaux en image */}
       <div className="space-y-3">
-        <div className="inline-block">
+        <div className="w-full max-w-[360px] mx-auto">
           <ImageButton
             src="/ui/btn-full.png"
             label="Annuler"
             onClick={annulerScan}
-            width={320}
-            height={100}
+            fluid
+            minWidth={220}
+            maxWidth={360}
+            aspect={3.2}
             hoverEffect={false}
           />
         </div>
-        <div className="inline-block">
+        <div className="w-full max-w-[360px] mx-auto">
           <ImageButton
             src="/ui/btn-full.png"
             label="Accueil"
             onClick={goAccueil}
-            width={320}
-            height={100}
+            fluid
+            minWidth={220}
+            maxWidth={360}
+            aspect={3.2}
             hoverEffect={false}
           />
         </div>

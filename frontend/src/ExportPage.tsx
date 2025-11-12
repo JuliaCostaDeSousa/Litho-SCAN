@@ -464,8 +464,10 @@ function ExportPage() {
               src="/ui/btn-full.png"
               label={exporting ? "Export…" : "Exporter le PDF"}
               onClick={onExportClick}
-              width={320}
-              height={100}
+              fluid
+              minWidth={220}
+              maxWidth={360}
+              aspect={3.2}
               hoverEffect={false}
               // @ts-ignore
               disabled={!canExportNow || exporting}
@@ -480,10 +482,12 @@ function ExportPage() {
           <div className="inline-flex flex-col items-center w-[320px]">
             <ImageButton
               src="/ui/btn-full.png"
-              label="Retour"
+              label="Accueil"
               onClick={()=>navigate("/")}
-              width={320}
-              height={100}
+              fluid
+              minWidth={220}
+              maxWidth={360}
+              aspect={3.2}
               hoverEffect={false}
             />
             <div className="h-5" aria-hidden="true" />

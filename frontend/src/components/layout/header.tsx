@@ -1,30 +1,46 @@
-import { Link, NavLink } from "react-router-dom";
+// src/header.tsx
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 
 export default function Header() {
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const LANDING_PATH = "/landing";
+  const isLanding = pathname === LANDING_PATH;
+
+  function goSection(id: string) {
+    if (isLanding) {
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else {
+      navigate(`${LANDING_PATH}#${id}`);
+    }
+  }
+
   return (
-    <div className="w-full flex items-center justify-between">
+    <div className="w-full flex items-center justify-between gap-2">
       {/* Logo + titre (clique -> /) */}
-      <Link to="/" className="flex items-center gap-3 shrink-0 group">
-        {/* Image du logo */}
+      <Link to="/" className="flex items-center gap-2 shrink-0">
         <img
           src="/ui/logo.png"
           alt="Litho-SCAN"
-          className="h-20 w-auto select-none"
+          className="h-10 w-auto sm:h-16 select-none"
           draggable={false}
         />
-        {/* Titre optionnel */}
-        <span className="text-white/95 text-[30px] font-semibold tracking-tight group-hover:text-white">
+        <span className="text-white/95 font-semibold tracking-tight
+                         text-base sm:text-2xl
+                         truncate max-w-[40vw] sm:max-w-none">
           Litho-SCAN
         </span>
       </Link>
 
-      {/* Nav simple (facultatif) */}
-      <nav className="hidden sm:flex items-center gap-4 text-sm">
+      {/* Nav compacte + scroll horiz si besoin */}
+      <nav className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm
+                      overflow-x-auto whitespace-nowrap [-ms-overflow-style:none] [scrollbar-width:none]
+                      [&::-webkit-scrollbar]:hidden">
         <NavLink
           to="/"
           className={({ isActive }) =>
             [
-              "px-4 py-2 rounded-lg transition-colors text-sm sm:text-base",
+              "px-3 py-1.5 rounded-md transition-colors",
               isActive ? "bg-white/10 text-white" : "text-white/80 hover:text-white"
             ].join(" ")
           }
@@ -32,6 +48,50 @@ export default function Header() {
           Accueil
         </NavLink>
 
+        <NavLink
+          to={LANDING_PATH}
+          className={({ isActive }) =>
+            [
+              "px-3 py-1.5 rounded-md transition-colors",
+              isActive ? "bg-white/10 text-white" : "text-white/80 hover:text-white"
+            ].join(" ")
+          }
+        >
+          Présentation
+        </NavLink>
+
+        {/* Liens vers sections de la landing */}
+        <button
+          onClick={() => goSection("features")}
+          className="px-3 py-1.5 rounded-md text-white/80 hover:text-white"
+        >
+          Fonctionnalités
+        </button>
+        <button
+          onClick={() => goSection("use-cases")}
+          className="px-3 py-1.5 rounded-md text-white/80 hover:text-white"
+        >
+          Cas d’usage
+        </button>
+        <button
+          onClick={() => goSection("demo")}
+          className="px-3 py-1.5 rounded-md text-white/80 hover:text-white"
+        >
+          Démo
+        </button>
+        <button
+          onClick={() => goSection("compat")}
+          className="px-3 py-1.5 rounded-md text-white/80 hover:text-white"
+        >
+          Compatibilité
+        </button>
+        <button
+          onClick={() => goSection("about")}
+          className="px-3 py-1.5 rounded-md text-white/80 hover:text-white"
+        >
+          À propos
+        </button>
+        
       </nav>
     </div>
   );
