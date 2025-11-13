@@ -23,3 +23,6 @@ ml/exports/*.onnx.zip
 ml/exports/*.pt
 *.pdf
 .DS_Store
+
+!frontend/public/models/
+!frontend/public/models/*.onnx
