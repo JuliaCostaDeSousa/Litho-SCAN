@@ -4,11 +4,22 @@ dist/
 # Python
 .venv/
 __pycache__/
+*.pyc
+.ipynb_checkpoints/
 # Env & artefacts
 frontend/.env
 backend/.env
 ml/data/
 artifacts/
 *.onnx
+*.pdf
+.DS_Store
+
+# Données et artefacts lourds
+ml/dataset/
+ml/artifacts/
+ml/exports/*.onnx
+ml/exports/*.onnx.zip
+ml/exports/*.pt
 *.pdf
 .DS_Store
