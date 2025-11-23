@@ -4,7 +4,7 @@ import ImageButton from "./components/ui/ImageMaskedButton";
 import { useEffect } from "react";
 import LocalVideo from "./components/LocalVideo";
 
-const APP_URL = "/"; // ou l’URL déployée si différente
+const APP_URL = "/photo"; // ou l’URL déployée si différente
 const GITHUB_URL = "https://github.com/JuliaCostaDeSousa/Litho-SCAN";
 
 /* FEATURES — bandeaux horizontaux alternés */

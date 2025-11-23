@@ -99,7 +99,7 @@ return (
   );
 }
 
-function App() {
+function PhotoPage() {
   const navigate = useNavigate();
   const [showCamera, setShowCamera] = useState(false);
   const [error, setError] = useState<string|null>(null)
@@ -318,4 +318,4 @@ function App() {
   </>
 );
 }
-export default App;
+export default PhotoPage;
