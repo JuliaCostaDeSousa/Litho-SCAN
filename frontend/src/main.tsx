@@ -3,7 +3,9 @@ import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router-dom";
 import "./index.css";
 import { router } from "./app/router";
+import { inject } from '@vercel/analytics';
 
+inject();
 window.addEventListener("error", (e) => {
   console.error("[window.onerror]", e.message, e.error);
 });
