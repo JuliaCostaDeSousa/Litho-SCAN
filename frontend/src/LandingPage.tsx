@@ -1,11 +1,12 @@
 // src/LandingPage.tsx
 import { useNavigate, useLocation } from "react-router-dom";
 import ImageButton from "./components/ui/ImageMaskedButton";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import LocalVideo from "./components/LocalVideo";
 
 const APP_URL = "/photo"; // ou l’URL déployée si différente
 const GITHUB_URL = "https://github.com/JuliaCostaDeSousa/Litho-SCAN";
+const SUPPORTED_ROCKS = ["Granite", "Basalte", "Grès", "Calcaire", "Schiste"];
 
 /* FEATURES — bandeaux horizontaux alternés */
 type Feature = {
@@ -66,35 +67,87 @@ const FEATURES_ROWS: Feature[] = [
 ];
 
 function FeatureRow({ title, desc, img, alt, reverse = false }: Feature) {
+  const [isZoomed, setIsZoomed] = useState(false);
+
   const imgOrder  = reverse ? "md:order-2" : "md:order-1";
   const textOrder = reverse ? "md:order-1" : "md:order-2";
 
   return (
-    <article className="rounded-2xl border border-white/10 bg-white/5 p-4 md:p-6">
+    <article className="relative rounded-2xl border border-white/10 bg-white/5 p-4 md:p-6">
       <div className="grid items-center gap-6 md:gap-10 md:grid-cols-2">
-        {/* Colonne texte */}
         <div className={`${textOrder} space-y-3`}>
           <h3 className="text-xl font-semibold">{title}</h3>
-          {/* ↑ taille/paragraphe boost */}
-          <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90">{desc}</p>
+          <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90" style={{ textAlign: "justify" }}>
+            {desc}
+          </p>
         </div>
 
-        {/* Colonne image */}
         <div className={`${imgOrder}`}>
-          <div className="rounded-xl overflow-hidden border border-white/10 bg-black/30">
+          <button
+            type="button"
+            onClick={() => setIsZoomed(true)}
+            className="w-full rounded-xl overflow-hidden border border-[#17BDCD] bg-black/30"
+          >
             <img
               src={img}
               alt={alt}
-              loading="lazy"
-              decoding="async"
               className="w-full h-full object-cover aspect-[4/3]"
+            />
+          </button>
+        </div>
+      </div>
+
+      {/* Lightbox locale */}
+      {isZoomed && (
+        <div
+          className="
+            absolute inset-0 z-20
+            flex items-center justify-center
+            bg-black/80 
+            px-2 md:px-4
+          "
+        >
+          <div
+            className="
+              relative
+              w-full md:w-[min(960px,100vw)]
+              max-h-[90vh]
+              border border-[#17BDCD]
+              rounded-xl
+              bg-black/90
+              p-2
+            "
+          >
+            {/* Fermeture par croix */}
+            <button
+              onClick={() => setIsZoomed(false)}
+              className="
+                absolute -top-3 -right-3
+                w-8 h-8 flex items-center justify-center
+                bg-black/80 text-white border border-white/30
+                rounded-full shadow-lg
+              "
+            >
+              ×
+            </button>
+
+            <img
+              src={img}
+              alt={alt}
+              className="
+                max-h-[86vh]
+                w-full
+                object-contain
+                rounded-lg
+              "
             />
           </div>
         </div>
-      </div>
+      )}
     </article>
   );
 }
+
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -159,7 +212,7 @@ export default function LandingPage() {
 
               {/* Accroche */}
               <p className="text-lg sm:text-xl font-semibold">
-                Transforme chaque caillou en découverte.
+                Transforme chaque roche en découverte.
               </p>
 
               {/* Sous-texte */}
@@ -169,10 +222,35 @@ export default function LandingPage() {
               </p>
             </div>
 
+            {/* 4) Avertissement V1 + CTA centré */}
+            <div className="w-full max-w-[360px] space-y-4">
+              {/* Encart roches prises en charge (A+ avec badges) */}
+              <div className="rounded-xl bg-black/50 border border-[#17BDCD]/40 shadow-[0_0_25px_rgba(23,189,205,0.25)] px-4 py-3 text-center">
+                <p className="text-base sm:text-lg font-semibold text-[#17BDCD]">
+                  ⚠️ Litho-SCAN — Version préliminaire
+                </p>
 
+                <p className="text-sm sm:text-[15px] text-white/90 mt-2 leading-snug">
+                  L’IA reconnaît actuellement <span className="font-semibold">5 types de roches</span> :
+                </p>
 
-            {/* 4) CTA centré */}
-            <div className="w-full max-w-[360px]">
+                <div className="mt-2 flex flex-wrap justify-center gap-2">
+                  {SUPPORTED_ROCKS.map((rock) => (
+                    <span
+                      key={rock}
+                      className="inline-flex items-center rounded-full border border-[#17BDCD]/40 px-4 py-1
+                                text-xs sm:text-[15px] font-medium text-[#17BDCD]"
+                    >
+                      {rock}
+                    </span>
+                  ))}
+                </div>
+                
+                <p className="text-[12px] sm:text-[13px] text-white/70 mt-1">
+                  De nouvelles roches seront ajoutées dans les prochaines versions.
+                </p>
+              </div>
+
               <ImageButton
                 src="/ui/btn-full.png"
                 label="Ouvrir l’application"
@@ -215,11 +293,11 @@ export default function LandingPage() {
 
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {/* 1. Sorties de terrain */}
-          <article className="rounded-xl border border-white/10 bg-white/5 p-4 flex gap-3">
+          <article className="rounded-xl border border-[#17BDCD] bg-white/5 p-4 flex gap-3">
             <div className="text-2xl leading-none">🗻</div>
             <div className="space-y-1">
               <h3 className="font-semibold">Sorties de terrain</h3>
-              <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90">
+              <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90" style={{ textAlign: "justify" }}>
                 Identifier rapidement une roche sur site, sans réseau. Ajoute des notes et exporte un PDF
                 avec coordonnées pour ton carnet de terrain.
               </p>
@@ -227,11 +305,11 @@ export default function LandingPage() {
           </article>
 
           {/* 2. Cours & TP */}
-          <article className="rounded-xl border border-white/10 bg-white/5 p-4 flex gap-3">
+          <article className="rounded-xl border border-[#17BDCD] bg-white/5 p-4 flex gap-3">
             <div className="text-2xl leading-none">🎓</div>
             <div className="space-y-1">
               <h3 className="font-semibold">Cours &amp; TP</h3>
-              <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90">
+              <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90" style={{ textAlign: "justify" }}>
                 Support pédagogique simple : prise de photo, prédiction avec confiance, fiche synthétique.
                 Parfait pour illustrer les concepts en classe.
               </p>
@@ -239,11 +317,11 @@ export default function LandingPage() {
           </article>
 
           {/* 3. Musées & collections */}
-          <article className="rounded-xl border border-white/10 bg-white/5 p-4 flex gap-3">
+          <article className="rounded-xl border border-[#17BDCD] bg-white/5 p-4 flex gap-3">
             <div className="text-2xl leading-none">🏛️</div>
             <div className="space-y-1">
               <h3 className="font-semibold">Musées &amp; collections</h3>
-              <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90">
+              <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90" style={{ textAlign: "justify" }}>
                 Pré-tri de pièces et fiches rapides. L’export PDF facilite l’archivage et le partage
                 avec l’équipe.
               </p>
@@ -251,11 +329,11 @@ export default function LandingPage() {
           </article>
 
           {/* 4. BTP / carrières */}
-          <article className="rounded-xl border border-white/10 bg-white/5 p-4 flex gap-3">
+          <article className="rounded-xl border border-[#17BDCD] bg-white/5 p-4 flex gap-3">
             <div className="text-2xl leading-none">🏗️</div>
             <div className="space-y-1">
               <h3 className="font-semibold">BTP / carrières</h3>
-              <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90">
+              <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90" style={{ textAlign: "justify" }}>
                 Repérage express sur le terrain, notes et localisation pour un compte-rendu clair auprès
                 des équipes techniques.
               </p>
@@ -263,22 +341,22 @@ export default function LandingPage() {
           </article>
 
           {/* 5. Clubs rando & naturalistes */}
-          <article className="rounded-xl border border-white/10 bg-white/5 p-4 flex gap-3">
+          <article className="rounded-xl border border-[#17BDCD] bg-white/5 p-4 flex gap-3">
             <div className="text-2xl leading-none">🥾</div>
             <div className="space-y-1">
               <h3 className="font-semibold">Clubs rando &amp; naturalistes</h3>
-              <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90">
+              <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90" style={{ textAlign: "justify" }}>
                 Curiosité en balade : identifie, apprends, garde une trace et partage facilement au retour.
               </p>
             </div>
           </article>
 
           {/* 6. Notes de voyage */}
-          <article className="rounded-xl border border-white/10 bg-white/5 p-4 flex gap-3">
+          <article className="rounded-xl border border-[#17BDCD] bg-white/5 p-4 flex gap-3">
             <div className="text-2xl leading-none">✈️</div>
             <div className="space-y-1">
               <h3 className="font-semibold">Notes de voyage</h3>
-              <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90">
+              <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90" style={{ textAlign: "justify" }}>
                 Crée des fiches PDF propres avec photo, position et commentaires pour documenter tes trouvailles.
               </p>
             </div>
@@ -303,19 +381,19 @@ export default function LandingPage() {
       <section id="compat" className="mx-auto max-w-5xl px-4 py-12">
         <h2 className="text-3xl font-semibold tracking-tight mb-6">Compatibilité</h2>
         <ul className="grid gap-4 sm:grid-cols-2 text-[15px] sm:text-[17px] leading-relaxed text-white/90">
-          <li className="rounded-xl border border-white/12 bg-white/5 p-4 flex items-start gap-3">
+          <li className="rounded-xl border border-[#17BDCD] bg-white/5 p-4 flex items-start gap-3">
             <span className="text-2xl leading-none">💻</span>
             <span><b>Ordinateur</b> : Chrome, Firefox, Edge, Safari récents.</span>
           </li>
-          <li className="rounded-xl border border-white/12 bg-white/5 p-4 flex items-start gap-3">
+          <li className="rounded-xl border border-[#17BDCD] bg-white/5 p-4 flex items-start gap-3">
             <span className="text-2xl leading-none">📱</span>
             <span><b>Smartphone</b> : Android (Chrome/Firefox) et iOS (Safari). Caméra ⇒ HTTPS requis.</span>
           </li>
-          <li className="rounded-xl border border-white/12 bg-white/5 p-4 flex items-start gap-3">
+          <li className="rounded-xl border border-[#17BDCD] bg-white/5 p-4 flex items-start gap-3">
             <span className="text-2xl leading-none">🖼️</span>
             <span><b>Formats</b> : JPEG/PNG/WebP. (HEIC : exporter en JPEG/PNG si nécessaire.)</span>
           </li>
-          <li className="rounded-xl border border-white/12 bg-white/5 p-4 flex items-start gap-3">
+          <li className="rounded-xl border border-[#17BDCD] bg-white/5 p-4 flex items-start gap-3">
             <span className="text-2xl leading-none">🧩</span>
             <span><b>Astuce Android</b> : certains sélecteurs “Aperçu” posent souci ; préfère <i>Galerie</i>.</span>
           </li>
@@ -328,7 +406,7 @@ export default function LandingPage() {
         <div className="grid gap-6 md:grid-cols-2">
           {/* ↑ texte boost + line-height */}
           <div className="space-y-4 text-white/90 text-[16px] sm:text-[17px] leading-relaxed">
-            <p>
+            <p style={{ textAlign: "justify" }}>
             Ancienne géologue devenue développeuse, je voulais relier ce que j’adore — le terrain — et l’informatique, en particulier l’IA vers laquelle je me réoriente. En me remémorant des vacances avec ma sœur, je me suis revue m’arrêter à chaque balade pour lui montrer le moindre caillou ou la moindre structure géologique. Je me suis dit : plutôt qu’une « Julia de poche », pourquoi ne pas créer une application claire et rapide qui identifie la roche ? C’est ainsi qu’est né Litho-SCAN.            </p>
             <p className="text-[15px] sm:text-[17px]">
               Repo :{" "}
@@ -340,7 +418,7 @@ export default function LandingPage() {
           </div>
 
           {/* Team / liens (avec photo) */}
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-6">
+          <div className="rounded-2xl border border-[#17BDCD] bg-white/5 p-4 sm:p-6">
             <div className="flex flex-col items-center text-center gap-4">
               {/* Portrait */}
               <picture>

@@ -8,7 +8,7 @@ type Props = {
 
 export default function LocalVideo({ mp4, webm, poster, title = "Demo video", trackVtt }: Props) {
   return (
-    <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-white/10 bg-black/40">
+    <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-[#17BDCD] bg-black/40">
       <video
         className="absolute inset-0 w-full h-full"
         poster={poster}
