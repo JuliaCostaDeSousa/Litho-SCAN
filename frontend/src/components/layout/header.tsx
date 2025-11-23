@@ -4,7 +4,7 @@ import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 export default function Header() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const LANDING_PATH = "/landing";
+  const LANDING_PATH = "/";
   const isLanding = pathname === LANDING_PATH;
 
   function goSection(id: string) {
@@ -49,7 +49,7 @@ export default function Header() {
         </NavLink>
 
         <NavLink
-          to={LANDING_PATH}
+          to='/photo'
           className={({ isActive }) =>
             [
               "px-3 py-1.5 rounded-md transition-colors",
@@ -57,34 +57,10 @@ export default function Header() {
             ].join(" ")
           }
         >
-          Présentation
+          Photo
         </NavLink>
 
         {/* Liens vers sections de la landing */}
-        <button
-          onClick={() => goSection("features")}
-          className="px-3 py-1.5 rounded-md text-white/80 hover:text-white"
-        >
-          Fonctionnalités
-        </button>
-        <button
-          onClick={() => goSection("use-cases")}
-          className="px-3 py-1.5 rounded-md text-white/80 hover:text-white"
-        >
-          Cas d’usage
-        </button>
-        <button
-          onClick={() => goSection("demo")}
-          className="px-3 py-1.5 rounded-md text-white/80 hover:text-white"
-        >
-          Démo
-        </button>
-        <button
-          onClick={() => goSection("compat")}
-          className="px-3 py-1.5 rounded-md text-white/80 hover:text-white"
-        >
-          Compatibilité
-        </button>
         <button
           onClick={() => goSection("about")}
           className="px-3 py-1.5 rounded-md text-white/80 hover:text-white"
