@@ -1,11 +1,11 @@
 // src/LandingPage.tsx
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation  } from "react-router-dom";
 import ImageButton from "./components/ui/ImageMaskedButton";
 import { useEffect, useState } from "react";
 import LocalVideo from "./components/LocalVideo";
+import { SiLinkedin, SiGithub } from "react-icons/si";
 
-const APP_URL = "/photo"; // ou l’URL déployée si différente
-const GITHUB_URL = "https://github.com/JuliaCostaDeSousa/Litho-SCAN";
+const APP_URL = "/identification"; // ou l’URL déployée si différente
 const SUPPORTED_ROCKS = ["Granite", "Basalte", "Grès", "Calcaire", "Schiste"];
 
 /* FEATURES — bandeaux horizontaux alternés */
@@ -225,7 +225,7 @@ export default function LandingPage() {
             {/* 4) Avertissement V1 + CTA centré */}
             <div className="w-full max-w-[360px] space-y-4">
               {/* Encart roches prises en charge (A+ avec badges) */}
-              <div className="rounded-xl bg-black/50 border border-[#17BDCD]/40 shadow-[0_0_25px_rgba(23,189,205,0.25)] px-4 py-3 text-center">
+              <div className="rounded-xl bg-black/50 border border-[#17BDCD] shadow-[0_0_25px_rgba(23,189,205,0.25)] px-4 py-3 text-center">
                 <p className="text-base sm:text-lg font-semibold text-[#17BDCD]">
                   ⚠️ Litho-SCAN — Version préliminaire
                 </p>
@@ -238,7 +238,7 @@ export default function LandingPage() {
                   {SUPPORTED_ROCKS.map((rock) => (
                     <span
                       key={rock}
-                      className="inline-flex items-center rounded-full border border-[#17BDCD]/40 px-4 py-1
+                      className="inline-flex items-center rounded-full border border-[#17BDCD] px-4 py-1
                                 text-xs sm:text-[15px] font-medium text-[#17BDCD]"
                     >
                       {rock}
@@ -250,10 +250,14 @@ export default function LandingPage() {
                   De nouvelles roches seront ajoutées dans les prochaines versions.
                 </p>
               </div>
-
+              <div
+                aria-hidden
+                className="mx-auto mt-6 sm:mt-7 mb-4 sm:mb-6 h-[2px] w-24 sm:w-32 rounded-full
+                          bg-gradient-to-r from-transparent via-[#17BDCD]/80 to-transparent"
+              />
               <ImageButton
                 src="/ui/btn-full.png"
-                label="Ouvrir l’application"
+                label="Lancer l’application"
                 fluid
                 minWidth={220}
                 maxWidth={360}
@@ -261,17 +265,12 @@ export default function LandingPage() {
                 hoverEffect={false}
                 onClick={() => navigate(APP_URL)}
               />
+              <div
+                aria-hidden
+                className="mx-auto my-2 sm:my-3 h-[2px] w-20 sm:w-28 rounded-full
+                          bg-gradient-to-r from-transparent via-[#17BDCD]/80 to-transparent"
+              />
             </div>
-
-            {/* 5) Lien GitHub juste dessous */}
-            <a
-              href={GITHUB_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="text-sm underline decoration-dotted underline-offset-4 opacity-95 hover:opacity-100"
-            >
-              Voir sur GitHub →
-            </a>
           </div>
         </div>
       </section>
@@ -297,7 +296,7 @@ export default function LandingPage() {
             <div className="text-2xl leading-none">🗻</div>
             <div className="space-y-1">
               <h3 className="font-semibold">Sorties de terrain</h3>
-              <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90" style={{ textAlign: "justify" }}>
+              <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90">
                 Identifier rapidement une roche sur site, sans réseau. Ajoute des notes et exporte un PDF
                 avec coordonnées pour ton carnet de terrain.
               </p>
@@ -309,7 +308,7 @@ export default function LandingPage() {
             <div className="text-2xl leading-none">🎓</div>
             <div className="space-y-1">
               <h3 className="font-semibold">Cours &amp; TP</h3>
-              <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90" style={{ textAlign: "justify" }}>
+              <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90">
                 Support pédagogique simple : prise de photo, prédiction avec confiance, fiche synthétique.
                 Parfait pour illustrer les concepts en classe.
               </p>
@@ -321,7 +320,7 @@ export default function LandingPage() {
             <div className="text-2xl leading-none">🏛️</div>
             <div className="space-y-1">
               <h3 className="font-semibold">Musées &amp; collections</h3>
-              <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90" style={{ textAlign: "justify" }}>
+              <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90">
                 Pré-tri de pièces et fiches rapides. L’export PDF facilite l’archivage et le partage
                 avec l’équipe.
               </p>
@@ -333,7 +332,7 @@ export default function LandingPage() {
             <div className="text-2xl leading-none">🏗️</div>
             <div className="space-y-1">
               <h3 className="font-semibold">BTP / carrières</h3>
-              <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90" style={{ textAlign: "justify" }}>
+              <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90">
                 Repérage express sur le terrain, notes et localisation pour un compte-rendu clair auprès
                 des équipes techniques.
               </p>
@@ -345,7 +344,7 @@ export default function LandingPage() {
             <div className="text-2xl leading-none">🥾</div>
             <div className="space-y-1">
               <h3 className="font-semibold">Clubs rando &amp; naturalistes</h3>
-              <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90" style={{ textAlign: "justify" }}>
+              <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90">
                 Curiosité en balade : identifie, apprends, garde une trace et partage facilement au retour.
               </p>
             </div>
@@ -356,7 +355,7 @@ export default function LandingPage() {
             <div className="text-2xl leading-none">✈️</div>
             <div className="space-y-1">
               <h3 className="font-semibold">Notes de voyage</h3>
-              <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90" style={{ textAlign: "justify" }}>
+              <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90">
                 Crée des fiches PDF propres avec photo, position et commentaires pour documenter tes trouvailles.
               </p>
             </div>
@@ -364,10 +363,45 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* IA OVERVIEW / LIEN VERS PAGE IA */}
+      <section className="mx-auto max-w-6xl px-4 py-10">
+        <h2 className="text-3xl font-semibold tracking-tight mb-6">
+          L’IA derrière Litho-SCAN
+        </h2>
+
+        <article className="rounded-xl border border-[#17BDCD] bg-white/5 p-4 flex gap-3">
+          <div className="space-y-2">
+            <p
+              className="text-[15px] sm:text-[17px] leading-relaxed text-white/90"
+              style={{ textAlign: "justify" }}
+            >
+              Litho-SCAN s’appuie sur un modèle de classification d’images
+              entraîné sur 5 types de roches. Sur la page&nbsp;
+              <span className="font-medium">Modèle IA</span>,
+              tu peux explorer l’architecture, le dataset, les courbes
+              d’apprentissage, la matrice de confusion et la calibration des
+              incertitudes.
+            </p>
+          </div>
+        </article>
+        <div className="py-4 text-center ">
+          <ImageButton
+            src="/ui/btn-full.png"
+            label="Explorer la page ''Modèle IA''"
+            fluid
+            minWidth={220}
+            maxWidth={360}
+            aspect={3.2}
+            hoverEffect={false}
+            onClick={() => navigate("IA")}
+          />
+        </div>
+      </section>
+
       {/* DEMO VIDEO */}
       <section id="demo" className="mx-auto max-w-6xl px-4 py-10">
-        <h2 className="text-2xl font-semibold mb-4">Vidéo démo</h2>
-        <div className="text-[15.5px] sm:text-[16.5px] text-white/80 mb-3">
+        <h2 className="text-3xl font-semibold mb-4">Vidéo démo</h2>
+        <div className="text-[15.5px] sm:text-[16.5px] text-white/90 mb-3">
           Une courte démonstration de bout en bout du flux d’identification et d’export.
         </div>
 
@@ -403,69 +437,106 @@ export default function LandingPage() {
       {/* ABOUT */}
       <section id="about" className="mx-auto max-w-6xl px-4 py-10">
         <h2 className="text-3xl font-semibold tracking-tight mb-4">À propos</h2>
-        <div className="grid gap-6 md:grid-cols-2">
-          {/* ↑ texte boost + line-height */}
-          <div className="space-y-4 text-white/90 text-[16px] sm:text-[17px] leading-relaxed">
-            <p style={{ textAlign: "justify" }}>
-            Ancienne géologue devenue développeuse, je voulais relier ce que j’adore — le terrain — et l’informatique, en particulier l’IA vers laquelle je me réoriente. En me remémorant des vacances avec ma sœur, je me suis revue m’arrêter à chaque balade pour lui montrer le moindre caillou ou la moindre structure géologique. Je me suis dit : plutôt qu’une « Julia de poche », pourquoi ne pas créer une application claire et rapide qui identifie la roche ? C’est ainsi qu’est né Litho-SCAN.            </p>
-            <p className="text-[15px] sm:text-[17px]">
-              Repo :{" "}
-              <a href={GITHUB_URL} target="_blank" rel="noreferrer"
-                 className="underline decoration-dotted underline-offset-4">
-                github.com/JuliaCostaDeSousa/Litho-SCAN
-              </a>
-            </p>
-          </div>
 
-          {/* Team / liens (avec photo) */}
-          <div className="rounded-2xl border border-[#17BDCD] bg-white/5 p-4 sm:p-6">
-            <div className="flex flex-col items-center text-center gap-4">
+        {/* Conteneur principal */}
+        <div className="rounded-xl border border-[#17BDCD] bg-white/5 p-5 sm:p-6">
+          <div
+            className="
+              grid gap-8 
+              md:grid-cols-[1fr,0.8fr]  /* ratio stable */
+              items-center
+            "
+          >
+            {/* Colonne texte */}
+            <div className="min-w-0"> 
+              <div className="px-4 py-3 space-y-4 text-white/90 text-[17px] leading-relaxed">
+                <p className="text-center">
+                  Ancienne géologue devenue développeuse, je voulais relier ce que j’adore — 
+                  la géologie — et l’informatique, en particulier l’IA vers laquelle je me 
+                  réoriente. En me remémorant des vacances avec ma sœur, je me suis revue 
+                  m’arrêter à chaque balade pour lui montrer le moindre caillou ou la moindre 
+                  structure géologique. Je me suis dit : plutôt qu’une « Julia de poche », 
+                  pourquoi ne pas créer une application claire et rapide qui identifie la roche ?
+                </p>
+                <p className="text-center">
+                  C’est ainsi qu’est né <span className="font-medium">Litho-SCAN</span>.
+                </p>
+              </div>
+            </div>
+
+            {/* Colonne profil */}
+            <div className="flex flex-col items-center text-center gap-4 min-w-0">
               {/* Portrait */}
-              <picture>
-                {/* optionnel si tu as les formats AVIF/WebP */}
-                <img
-                  src="/ui/photo_Julia.jpg" /* fallback JPEG/PNG */
-                  alt="Portrait de Julia Costa De Sousa"
-                  loading="lazy"
-                  decoding="async"
-                  className="w-32 h-32 sm:w-36 sm:h-36 rounded-full object-cover
-                            ring-2 ring-[#17BDCD]/70 ring-offset-2 ring-offset-transparent
-                            shadow-xl select-none"
-                  draggable={false}
+              <div className="relative w-32 h-32 sm:w-56 sm:h-56">
+                <div
+                  className="
+                    absolute inset-0 rounded-full
+                    ring-1 ring-[#17BDCD] ring-offset-1 ring-offset-transparent
+                    shadow-[0_0_25px_rgba(23,189,205,0.9)]
+                  "
                 />
-              </picture>
-
-              {/* Infos */}
-              <div>
-                <h3 className="text-lg font-semibold">Julia Costa De Sousa</h3>
-                <p className="text-white/70 text-sm">Full-stack & IA</p>
+                <img
+                  src="/ui/photo_Julia.jpg"
+                  alt="Portrait de Julia Costa De Sousa"
+                  className="w-full h-full rounded-full object-cover select-none"
+                />
               </div>
 
-              {/* Liens */}
-              <div className="flex items-center gap-4 text-sm">
+              {/* Infos */}
+              <div className="space-y-1">
+                <h3 className="text-lg font-semibold">Julia Costa De Sousa</h3>
+                <p className="text-white/70 text-sm">Full-stack &amp; IA</p>
+              </div>
+
+              {/* Social bar */}
+              <div className="flex items-center gap-3 mt-1">
                 <a
                   href="https://www.linkedin.com/in/julia-costa-de-sousa"
-                  target="_blank" rel="noreferrer"
-                  className="underline opacity-90 hover:opacity-100"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="
+                    group inline-flex items-center gap-1
+                    rounded-full border border-[#17BDCD]/60
+                    px-3 py-1 text-xs sm:text-sm text-white/90
+                    transition hover:bg-[#17BDCD]/10
+                    hover:shadow-[0_0_18px_rgba(23,189,205,0.8)]
+                  "
                 >
-                  LinkedIn
+                  <SiLinkedin className="w-4 h-4 text-[#17BDCD] group-hover:text-[#A5F3FC]" />
+                  <span>LinkedIn</span>
                 </a>
+
                 <a
                   href="https://github.com/JuliaCostaDeSousa"
-                  target="_blank" rel="noreferrer"
-                  className="underline opacity-90 hover:opacity-100"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="
+                    group inline-flex items-center gap-1
+                    rounded-full border border-[#17BDCD]/60
+                    px-3 py-1 text-xs sm:text-sm text-white/90
+                    transition hover:bg-[#17BDCD]/10
+                    hover:shadow-[0_0_18px_rgba(23,189,205,0.8)]
+                  "
                 >
-                  GitHub
+                  <SiGithub className="w-4 h-4 text-[#17BDCD] group-hover:text-[#A5F3FC]" />
+                  <span>GitHub</span>
                 </a>
               </div>
             </div>
           </div>
-
         </div>
       </section>
 
+
+
       {/* CTA final */}
-      <section className="mx-auto max-w-6xl px-4 py-12 text-center">
+      <section className="mx-auto max-w-6xl px-4 py-4 text-center">
+        {/* Trait*/}
+        <div
+            aria-hidden
+            className="mx-auto mt-6 sm:mt-7 mb-4 sm:mb-6 h-[2px] w-24 sm:w-32 rounded-full
+                    bg-gradient-to-r from-transparent via-[#17BDCD]/80 to-transparent"
+        />
         <h3 className="text-2xl font-semibold mb-3">Prêt·e à essayer ?</h3>
         <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/80 mb-4">
           Ouvre l’app, fais une photo, obtiens ta fiche et exporte ton PDF !
@@ -479,6 +550,12 @@ export default function LandingPage() {
           aspect={3.2}
           hoverEffect={false}
           onClick={() => navigate(APP_URL)}
+        />
+        {/* Trait*/}
+        <div
+            aria-hidden
+            className="mx-auto mt-6 sm:mt-7 mb-4 sm:mb-6 h-[2px] w-24 sm:w-32 rounded-full
+                    bg-gradient-to-r from-transparent via-[#17BDCD]/80 to-transparent"
         />
       </section>
     </main>

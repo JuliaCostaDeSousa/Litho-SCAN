@@ -483,7 +483,7 @@ function ExportPage() {
             <ImageButton
               src="/ui/btn-full.png"
               label="Accueil"
-              onClick={()=>navigate("/photo")}
+              onClick={()=>navigate("/identification")}
               fluid
               minWidth={220}
               maxWidth={360}

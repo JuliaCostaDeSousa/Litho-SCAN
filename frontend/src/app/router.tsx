@@ -8,6 +8,7 @@ import ScanPage from "../ScanPage";         // '/scan'
 import ResultsPage from "../ResultsPage";   // '/results'
 import ExportPage from "../ExportPage";     // '/exportPdf'
 import LandingPage from "../LandingPage";   // '/landing'
+import ModelPage from "../ModelPage";       // '/model'
 
 export const router = createBrowserRouter([
   {
@@ -18,7 +19,8 @@ export const router = createBrowserRouter([
       { path: "scan", element: <ScanPage /> },
       { path: "results", element: <ResultsPage /> },
       { path: "exportPdf", element: <ExportPage /> },
-      { path: "photo", element: <PhotoPage />},
+      { path: "identification", element: <PhotoPage />},
+      { path: "IA", element: <ModelPage />},
     ],
   },
 ]);
