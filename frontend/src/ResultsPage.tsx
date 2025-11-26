@@ -47,7 +47,7 @@ export default function ResultsPage() {
 
     if (!found) {
       // pas de blob → retour accueil
-      navigate("/photo", { replace: true, state: null });
+      navigate("/identification", { replace: true, state: null });
       return;
     }
     setFile(found);
@@ -146,7 +146,7 @@ export default function ResultsPage() {
         <ImageButton
           src="/ui/btn-full.png"
           label="Retour à l’accueil"
-          onClick={() => navigate("/photo")}
+          onClick={() => navigate("/identification")}
           fluid
           minWidth={220}
           maxWidth={360}
@@ -376,7 +376,7 @@ export default function ResultsPage() {
           <ImageButton
             src="/ui/btn-full.png"
             label="Accueil"
-            onClick={() => navigate('/photo', { replace: true })}
+            onClick={() => navigate('/identification', { replace: true })}
             fluid
             minWidth={220}
             maxWidth={360}

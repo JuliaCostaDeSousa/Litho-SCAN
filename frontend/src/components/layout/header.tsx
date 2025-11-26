@@ -18,7 +18,16 @@ export default function Header() {
   return (
     <div className="w-full flex items-center justify-between gap-2">
       {/* Logo + titre (clique -> /) */}
-      <Link to="/" className="flex items-center gap-2 shrink-0">
+      <Link 
+        to="/"
+        className="flex items-center gap-2 shrink-0"
+        onClick={(e) => {
+              if (pathname === "/") {
+              e.preventDefault(); // empêche la "fausse" navigation
+              window.scrollTo({ top: 0, behavior: "smooth" });
+              }
+          }}
+        >
         <img
           src="/ui/logo.png"
           alt="Litho-SCAN"
@@ -38,6 +47,12 @@ export default function Header() {
                       [&::-webkit-scrollbar]:hidden">
         <NavLink
           to="/"
+          onClick={(e) => {
+              if (pathname === "/") {
+              e.preventDefault(); // empêche la "fausse" navigation
+              window.scrollTo({ top: 0, behavior: "smooth" });
+              }
+          }}
           className={({ isActive }) =>
             [
               "px-3 py-1.5 rounded-md transition-colors",
@@ -49,7 +64,13 @@ export default function Header() {
         </NavLink>
 
         <NavLink
-          to='/photo'
+          to='/identification'
+          onClick={(e) => {
+              if (pathname === "/identification") {
+              e.preventDefault(); // empêche la "fausse" navigation
+              window.scrollTo({ top: 0, behavior: "smooth" });
+              }
+          }}
           className={({ isActive }) =>
             [
               "px-3 py-1.5 rounded-md transition-colors",
@@ -57,7 +78,25 @@ export default function Header() {
             ].join(" ")
           }
         >
-          Photo
+          Identification
+        </NavLink>
+
+        <NavLink
+          to='/IA'
+          onClick={(e) => {
+              if (pathname === "/IA") {
+              e.preventDefault(); // empêche la "fausse" navigation
+              window.scrollTo({ top: 0, behavior: "smooth" });
+              }
+          }}
+          className={({ isActive }) =>
+            [
+              "px-3 py-1.5 rounded-md transition-colors",
+              isActive ? "bg-white/10 text-white" : "text-white/80 hover:text-white"
+            ].join(" ")
+          }
+        >
+          Modèle IA
         </NavLink>
 
         {/* Liens vers sections de la landing */}

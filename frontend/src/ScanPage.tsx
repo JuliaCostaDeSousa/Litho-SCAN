@@ -42,7 +42,7 @@ function ScanPage() {
     const found = fromState ?? fromStash ?? null;
 
     if (!found) {
-      navigate("/photo", { replace: true, state: null });
+      navigate("/identification", { replace: true, state: null });
       return;
     }
     setFile(found);
@@ -65,11 +65,11 @@ function ScanPage() {
 
   function annulerScan() {
     abortRef.current?.abort();
-    navigate('/photo', { replace: true, state: null });
+    navigate('/identification', { replace: true, state: null });
   }
 
   function goAccueil() {
-    navigate('/photo', { replace: true, state: null });
+    navigate('/identification', { replace: true, state: null });
   }
 
   function reessayerScan() {

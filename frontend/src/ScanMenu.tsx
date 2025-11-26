@@ -111,7 +111,7 @@ function ScanMenu() {
   }
 
   function goAccueil() {
-    navigate("/photo", { replace: true, state: null });
+    navigate("/identification", { replace: true, state: null });
   }
   
   const FRAME_SIZE = 224;   // taille de ton cadre
