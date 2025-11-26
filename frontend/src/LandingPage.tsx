@@ -296,7 +296,7 @@ export default function LandingPage() {
             <div className="text-2xl leading-none">🗻</div>
             <div className="space-y-1">
               <h3 className="font-semibold">Sorties de terrain</h3>
-              <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90">
+              <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90" style={{ textAlign: "justify" }}>
                 Identifier rapidement une roche sur site, sans réseau. Ajoute des notes et exporte un PDF
                 avec coordonnées pour ton carnet de terrain.
               </p>
@@ -308,7 +308,7 @@ export default function LandingPage() {
             <div className="text-2xl leading-none">🎓</div>
             <div className="space-y-1">
               <h3 className="font-semibold">Cours &amp; TP</h3>
-              <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90">
+              <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90" style={{ textAlign: "justify" }}>
                 Support pédagogique simple : prise de photo, prédiction avec confiance, fiche synthétique.
                 Parfait pour illustrer les concepts en classe.
               </p>
@@ -320,7 +320,7 @@ export default function LandingPage() {
             <div className="text-2xl leading-none">🏛️</div>
             <div className="space-y-1">
               <h3 className="font-semibold">Musées &amp; collections</h3>
-              <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90">
+              <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90" style={{ textAlign: "justify" }}>
                 Pré-tri de pièces et fiches rapides. L’export PDF facilite l’archivage et le partage
                 avec l’équipe.
               </p>
@@ -332,7 +332,7 @@ export default function LandingPage() {
             <div className="text-2xl leading-none">🏗️</div>
             <div className="space-y-1">
               <h3 className="font-semibold">BTP / carrières</h3>
-              <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90">
+              <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90" style={{ textAlign: "justify" }}>
                 Repérage express sur le terrain, notes et localisation pour un compte-rendu clair auprès
                 des équipes techniques.
               </p>
@@ -344,7 +344,7 @@ export default function LandingPage() {
             <div className="text-2xl leading-none">🥾</div>
             <div className="space-y-1">
               <h3 className="font-semibold">Clubs rando &amp; naturalistes</h3>
-              <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90">
+              <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90" style={{ textAlign: "justify" }}>
                 Curiosité en balade : identifie, apprends, garde une trace et partage facilement au retour.
               </p>
             </div>
@@ -355,7 +355,7 @@ export default function LandingPage() {
             <div className="text-2xl leading-none">✈️</div>
             <div className="space-y-1">
               <h3 className="font-semibold">Notes de voyage</h3>
-              <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90">
+              <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90" style={{ textAlign: "justify" }}>
                 Crée des fiches PDF propres avec photo, position et commentaires pour documenter tes trouvailles.
               </p>
             </div>
