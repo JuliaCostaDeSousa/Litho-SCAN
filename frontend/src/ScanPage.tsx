@@ -38,7 +38,7 @@ function ScanPage() {
   // 1) Récupération du fichier (state prioritaire, sinon stash)
   useEffect(() => {
     const fromState = state?.file ?? null;
-    const fromStash = TransferStore.take();
+    const fromStash = fromState ? null : TransferStore.take();
     const found = fromState ?? fromStash ?? null;
 
     if (!found) {

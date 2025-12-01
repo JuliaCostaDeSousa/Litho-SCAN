@@ -26,8 +26,8 @@ export default function ResultsPage() {
   const [file, setFile] = useState<Blob | null>(null);
   const [preview, setPreview] = useState<string>();
   const [rockInfos, setRockInfos] = useState<any[] | null>(null);
-  const [, setInfoLoading] = useState(false);
-  const [, setInfoError] = useState<string | null>(null);
+  const [infoLoading, setInfoLoading] = useState(false);
+  const [infoError, setInfoError] = useState<string | null>(null);
   const [activeIdx, setActiveIdx] = useState(0);
   const [exporting, setExporting] = useState(false);
   const didInit = useRef(false);
@@ -68,6 +68,9 @@ export default function ResultsPage() {
 
   const top1Percent = getPercent(result?.top1_label) ?? Math.round((result?.top1_conf ?? 0) * 100);
   const isCertain = top1Percent === 100;
+  const effectiveTop3 = (result?.top3 ?? []).filter(
+  (t) => (t.percent ?? 0) > 0
+  );
 
   const MODEL_TO_DB: Record<string, string> = {
     basalte: "Basalte", calcaire: "Calcaire", granite: "Granite", gres: "Grès", schiste: "Schiste",
@@ -78,7 +81,11 @@ export default function ResultsPage() {
   };
 
   const modelLabels =
-    !result || isAbstained ? [] : (isCertain ? [result.top1_label!].filter(Boolean) as string[] : result.top3.map(t => t.label));
+    !result || isAbstained
+      ? []
+      : (isCertain
+          ? [result.top1_label!].filter(Boolean) as string[]
+          : effectiveTop3.map((t) => t.label));
 
   const toQuery = modelLabels.map(lab => {
     const nomDb = MODEL_TO_DB[lab.toLowerCase() as keyof typeof MODEL_TO_DB];
@@ -89,11 +96,11 @@ export default function ResultsPage() {
   // ---------- Fetch infos roches ----------
   useEffect(() => {
     if (!result || isAbstained) { setRockInfos(null); setInfoLoading(false); setInfoError(null); return; }
-    if (toQuery.length === 0)   { setRockInfos([]);   setInfoLoading(false); setInfoError(null); return; }
-    if (!VITE_API_BASE_URL)     { setRockInfos([]);   setInfoError("API non configurée (VITE_API_BASE_URL)."); return; }
+    if (toQuery.length === 0)   { setRockInfos([])  ; setInfoLoading(false); setInfoError(null); return; }
+    if (!VITE_API_BASE_URL)     { setRockInfos([])  ; setInfoLoading(false); setInfoError("API non configurée (VITE_API_BASE_URL)."); return; }
 
     const ac = new AbortController();
-    setInfoLoading(true); setInfoError(null);
+    setRockInfos(null); setInfoLoading(true); setInfoError(null);
 
     (async () => {
       try {
@@ -120,15 +127,11 @@ export default function ResultsPage() {
         });
 
       setRockInfos(inOrder);
-      if (inOrder.length === 0) {
-        // Optional: minimal UX to indicate why there’s no card
-        setInfoError("Aucune fiche trouvée pour ces prédictions.");
-      }
-      } catch (e: any) {
-        if (e?.name !== "AbortError") { setRockInfos(null); setInfoError("Impossible de récupérer les fiches."); }
-      } finally {
-        setInfoLoading(false);
-      }
+    } catch (e: any) {
+      if (e?.name !== "AbortError") { setRockInfos(null); setInfoError("Impossible de récupérer les fiches."); }
+    } finally {
+      setInfoLoading(false);
+    }
     })();
 
     return () => ac.abort();
@@ -157,7 +160,7 @@ export default function ResultsPage() {
     );
   }
 
-  const canExport = !!file && !!result && !result.abstained && !!result.top1_label;
+  const canExport = !!file && !!result && !result.abstained && !!result.top1_label && !!rockInfos && rockInfos.length > 0;
 
   async function onExportPdfClick() {
     if (!file || !result || isAbstained || exporting) return;
@@ -210,8 +213,8 @@ export default function ResultsPage() {
 
         {/* Colonne 2 = PRÉDICTIONS */}
         <aside className="min-w-0 w-full">
-          <div className="w-full max-w-[520px] mx-auto">  {/* ← cap + centrage */}
-            <div className="space-y-3 max-h-[180px] md:h-[160px] overflow-y-auto pr-2
+          <div className="w-full mx-auto">  {/* ← cap + centrage */}
+            <div className="space-y-3 overflow-y-auto pr-2
                             [scrollbar-color:theme(colors.white/.4)_transparent]
                             [scrollbar-width:thin] min-w-0">
               {!!result && (
@@ -229,9 +232,9 @@ export default function ResultsPage() {
                     if (!alts.length) return null;
 
                     return (
-                      <div className="text-sm min-w-0 md:justify-self-center">
-                        <div className="font-medium">Autres prédictions</div>
-                        <ul className="mt-2 space-y-1 md:justify-self-center">
+                      <div className="text-sm min-w-0 justify-self-center">
+                        <div className="font-medium">Autres prédictions :</div>
+                        <ul className="mt-2 space-y-1 justify-self-center">
                           {alts.map((t) => (
                             <li key={t.index} className="flex w-full items-center gap-3">
                               <span className="truncate">{prettyLabel(t.label)}</span>
@@ -250,106 +253,126 @@ export default function ResultsPage() {
       </div>
 
       {/* Séparateur */}
-      <hr className="my-8 border-white/20" />
+      <div
+        aria-hidden
+        className="mx-auto mt-6 sm:mt-7 mb-4 sm:mb-6 h-[2px] rounded-full
+                  bg-gradient-to-r from-transparent via-[#17BDCD]/80 to-transparent"
+      />
 
       {/* Onglets + fiche informative — largeur et hauteur fixées + scroll interne */}
       <section className="grid gap-6">
-        {rockInfos && rockInfos.length > 1 && (
-          <div className="flex flex-wrap justify-center gap-2">
-            {rockInfos.slice(0, 3).map((r, i) => {
-              const isActive = activeIdx === i;
-              return (
-                <div
-                  key={r.id ?? i}
-                  className={[
-                    "rounded-[12px] transition",
-                    isActive ? "ring-2 ring-[#17BDCD]/70 ring-offset-2 ring-offset-transparent" : ""
-                  ].join(" ")}
-                >
-                  <ImageButton
-                    src="/ui/btn-full.png"    // tu gardes le même PNG
-                    label={`Top-${i + 1}`}    // “placeholder” ici = le label affiché
-                    onClick={() => setActiveIdx(i)}
-                    /*width={130}               // ← adapte la taille
-                    height={56}               // ← adapte la taille*/
-                    fluid
-                    minWidth={220}
-                    maxWidth={360}
-                    aspect={3.2}
-                    hoverEffect={false}       // cohérent avec le style actuel
-                    className={isActive ? "" : "opacity-95"} // légère différence si tu veux
-                  />
-                </div>
-              );
-            })}
-          </div>
+        {/* État : erreur d’accès aux infos */}
+        {!infoLoading && infoError && (
+          <p className="text-center text-sm text-red-300">
+            {infoError}
+          </p>
         )}
 
-        {rockInfos && rockInfos.length > 0 ? (
-          <article
-            className="w-full max-w-[560px] mx-auto rounded-xl border border-white/15 shadow-sm
-                      h-[360px] sm:h-[420px] overflow-y-auto pr-3
-                      [scrollbar-color:theme(colors.white/.4)_transparent]
-                      [scrollbar-width:thin]
-                      bg-black/60"
-          >
-            {(() => {
-              const r = rockInfos[Math.min(activeIdx, rockInfos.length - 1)];
-              return (
-                <div className="p-4 space-y-3 text-sm leading-relaxed">
-                  {!isCertain && (
-                    <h4 className="text-lg font-semibold text-center sticky top-0 bg-transparent/60 backdrop-blur-[1px] pb-2">
-                      {r.nom}
-                    </h4>
-                  )}
+        {/* État : pas d’erreur → on affiche les onglets + fiche si dispo */}
+        {!infoLoading && !infoError && (
+          <>{rockInfos && rockInfos.length === 0 && (
+              <p className="text-center text-sm text-white/80 animate-pulse">
+                Recherche d’informations…
+              </p>)}
+            {rockInfos && rockInfos.length > 0 && (
+              <div className="flex flex-wrap justify-center gap-2">
+                {rockInfos.slice(0, 3).map((r, i) => {
+                  const isActive = activeIdx === i;
+                  return (
+                    <div
+                      key={r.id ?? i}
+                      className={[
+                        "rounded-[12px] transition",
+                        isActive
+                          ? "ring-2 ring-[#17BDCD]/70 ring-offset-2 ring-offset-transparent"
+                          : ""
+                      ].join(" ")}
+                    >
+                      <ImageButton
+                        src="/ui/btn-full.png"
+                        label={`Top-${i + 1}`}
+                        onClick={() => setActiveIdx(i)}
+                        fluid
+                        minWidth={220}
+                        maxWidth={360}
+                        aspect={3.2}
+                        hoverEffect={false}
+                        className={isActive ? "" : "opacity-95"}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
-                  {/* petits blocs “aérés” */}
-                  {r.type && (
-                    <div><span className="text-white/90 font-medium">Type :</span> {r.type}</div>
-                  )}
-                  {r.texture && (
-                    <div><span className="text-white/90 font-medium">Texture :</span> {r.texture}</div>
-                  )}
-                  {r.mineraux_principaux && (
-                    <div>
-                      <span className="text-white/90 font-medium">Minéraux principaux :</span> {r.mineraux_principaux}
+            {result && rockInfos && rockInfos.length > 0 ? (
+              <article
+                className="w-full max-w-[560px] mx-auto rounded-xl border border-white/15 shadow-sm
+                          h-[360px] sm:h-[420px] overflow-y-auto pr-3
+                          [scrollbar-color:theme(colors.white/.4)_transparent]
+                          [scrollbar-width:thin]
+                          bg-black/60"
+              >
+                {(() => {
+                  const r = rockInfos[Math.min(activeIdx, rockInfos.length - 1)];
+                  return (
+                    <div className="p-4 space-y-3 text-sm leading-relaxed">
+                      {!isCertain && (
+                        <h4 className="text-lg font-semibold text-center sticky top-0 bg-transparent/60 backdrop-blur-[1px] pb-2">
+                          {r.nom}
+                        </h4>
+                      )}
+
+                      {r.type && (
+                        <div>
+                          <span className="text-white/90 font-medium">Type :</span> {r.type}
+                        </div>
+                      )}
+                      {r.texture && (
+                        <div>
+                          <span className="text-white/90 font-medium">Texture :</span> {r.texture}
+                        </div>
+                      )}
+                      {r.mineraux_principaux && (
+                        <div>
+                          <span className="text-white/90 font-medium">Minéraux principaux :</span> {r.mineraux_principaux}
+                        </div>
+                      )}
+                      {r.mineraux_secondaires && (
+                        <div>
+                          <span className="text-white/90 font-medium">Minéraux secondaires :</span> {r.mineraux_secondaires}
+                        </div>
+                      )}
+                      {r.densite_g_cm3 && (
+                        <div>
+                          <span className="text-white/90 font-medium">Densité (g/cm³) :</span> {r.densite_g_cm3}
+                        </div>
+                      )}
+                      {r.durete_Mohs && (
+                        <div>
+                          <span className="text-white/90 font-medium">Dureté (Mohs) :</span> {r.durete_Mohs}
+                        </div>
+                      )}
+                      {r.contexte && (
+                        <div>
+                          <span className="text-white/90 font-medium">Contexte de formation :</span> {r.contexte}
+                        </div>
+                      )}
+                      {r.astuces_terrain && (
+                        <div>
+                          <span className="text-white/90 font-medium">Astuces terrain :</span> {r.astuces_terrain}
+                        </div>
+                      )}
                     </div>
-                  )}
-                  {r.mineraux_secondaires && (
-                    <div>
-                      <span className="text-white/90 font-medium">Minéraux secondaires :</span> {r.mineraux_secondaires}
-                    </div>
-                  )}
-                  {r.densite_g_cm3 && (
-                    <div>
-                      <span className="text-white/90 font-medium">Densité (g/cm³) :</span> {r.densite_g_cm3}
-                    </div>
-                  )}
-                  {r.durete_Mohs && (
-                    <div>
-                      <span className="text-white/90 font-medium">Dureté (Mohs) :</span> {r.durete_Mohs}
-                    </div>
-                  )}
-                  {r.contexte && (
-                    <div>
-                      <span className="text-white/90 font-medium">Contexte de formation :</span> {r.contexte}
-                    </div>
-                  )}
-                  {r.astuces_terrain && (
-                    <div>
-                      <span className="text-white/90 font-medium">Astuces terrain :</span> {r.astuces_terrain}
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-          </article>
-        ): rockInfos && rockInfos.length === 0 ? (
-          <p className="text-center text-sm text-white/80">
-            Aucune fiche trouvée pour ces prédictions.
-          </p>
-        ) : null}
+                  );
+                })()}
+              </article>
+            ) : null
+          }
+          </>
+        )}
       </section>
+
 
       {/* Actions (boutons) */}
       <section className="mt-8 text-center space-y-3">

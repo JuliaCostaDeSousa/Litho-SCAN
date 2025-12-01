@@ -24,6 +24,8 @@ const FEATURES_ROWS: Feature[] = [
       <>
         Ouvre l’appareil photo ou choisis une image depuis la galerie.
         L’aperçu est cadré automatiquement pour un résultat propre et immédiat.
+        Pour découvrir l’application sans prendre de photo, tu peux utiliser
+        l’une des images d’exemple intégrées.
       </>
     ),
     img: "/ui/import_photo.png",
@@ -45,7 +47,7 @@ const FEATURES_ROWS: Feature[] = [
     title: "Géolocalisation (si disponible)",
     desc: (
       <>
-        Récupère automatiquement les coordonnées depuis l’EXIF ou l’appareil.
+        Récupère automatiquement les coordonnées GPS depuis l’EXIF ou l’appareil.
         Sinon, saisis-les manuellement. Les champs sont validés et lisibles.
       </>
     ),
@@ -56,7 +58,7 @@ const FEATURES_ROWS: Feature[] = [
     title: "Export PDF propre",
     desc: (
       <>
-        Génère un PDF net avec la photo, la roche Top-1, les coordonnées (EXIF/Appareil/Manuel)
+        Génère un PDF net avec la photo, la roche Top-1, les coordonnées (EXIF / Appareil / Manuel)
         et tes notes — prêt pour le terrain.
       </>
     ),
@@ -225,7 +227,7 @@ export default function LandingPage() {
             {/* 4) Avertissement V1 + CTA centré */}
             <div className="w-full max-w-[360px] space-y-4">
               {/* Encart roches prises en charge (A+ avec badges) */}
-              <div className="rounded-xl bg-black/50 border border-[#17BDCD] shadow-[0_0_25px_rgba(23,189,205,0.25)] px-4 py-3 text-center">
+              <div className="rounded-xl bg-black/50 border border-[#17BDCD] shadow-[0_0_12px_rgba(23,189,205,0.6)] px-4 py-3 text-center">
                 <p className="text-base sm:text-lg font-semibold text-[#17BDCD]">
                   ⚠️ Litho-SCAN — Version préliminaire
                 </p>
@@ -387,13 +389,13 @@ export default function LandingPage() {
         <div className="py-4 text-center ">
           <ImageButton
             src="/ui/btn-full.png"
-            label="Explorer la page ''Modèle IA''"
+            label="Explorer la page « Modèle IA »"
             fluid
             minWidth={220}
             maxWidth={360}
             aspect={3.2}
             hoverEffect={false}
-            onClick={() => navigate("IA")}
+            onClick={() => navigate("/IA")}
           />
         </div>
       </section>
@@ -499,7 +501,7 @@ export default function LandingPage() {
                     rounded-full border border-[#17BDCD]/60
                     px-3 py-1 text-xs sm:text-sm text-white/90
                     transition hover:bg-[#17BDCD]/10
-                    hover:shadow-[0_0_18px_rgba(23,189,205,0.8)]
+                    hover:shadow-[0_0_12px_rgba(23,189,205,0.6)]
                   "
                 >
                   <SiLinkedin className="w-4 h-4 text-[#17BDCD] group-hover:text-[#A5F3FC]" />
@@ -515,7 +517,7 @@ export default function LandingPage() {
                     rounded-full border border-[#17BDCD]/60
                     px-3 py-1 text-xs sm:text-sm text-white/90
                     transition hover:bg-[#17BDCD]/10
-                    hover:shadow-[0_0_18px_rgba(23,189,205,0.8)]
+                    hover:shadow-[0_0_12px_rgba(23,189,205,0.6)]
                   "
                 >
                   <SiGithub className="w-4 h-4 text-[#17BDCD] group-hover:text-[#A5F3FC]" />
