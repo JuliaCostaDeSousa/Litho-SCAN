@@ -268,12 +268,16 @@ export default function ResultsPage() {
           </p>
         )}
 
+        {/* État : en cours de chargement */}
+        {infoLoading && !infoError && (
+        <p className="text-center text-sm text-white/80 animate-pulse">
+            Informations en cours de chargement...
+        </p>
+        )}
+
         {/* État : pas d’erreur → on affiche les onglets + fiche si dispo */}
         {!infoLoading && !infoError && (
-          <>{rockInfos && rockInfos.length === 0 && (
-              <p className="text-center text-sm text-white/80 animate-pulse">
-                Recherche d’informations…
-              </p>)}
+          <>
             {rockInfos && rockInfos.length > 0 && (
               <div className="flex flex-wrap justify-center gap-2">
                 {rockInfos.slice(0, 3).map((r, i) => {
