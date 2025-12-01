@@ -22,7 +22,7 @@ function ScanMenu() {
 
   useEffect(() => {
     if (!initialUrl && !initialFile) {
-      navigate("/", { replace: true, state: null });
+      navigate("/identification", { replace: true, state: null });
     }
   }, [initialUrl, initialFile, navigate]);
 

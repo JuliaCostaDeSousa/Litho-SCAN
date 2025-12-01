@@ -219,7 +219,7 @@ function ExportPage() {
 
   const result = state?.exportResult;
   const canExportNow =
-    !!file && !!result && !result.abstained && !!result.top1.label && isManualValid;
+    !!file && !!result && !result.abstained && !!result.top1.label && !!state?.top1Rock && isManualValid;
 
   async function onExportClick() {
     if (!canExportNow || !file || !result) return;

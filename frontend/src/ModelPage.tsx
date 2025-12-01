@@ -10,9 +10,21 @@ import {
   Legend,
   LineChart,
   Line,
+  ReferenceLine,
+  ReferenceArea,
 } from "recharts";
 import { useNavigate } from "react-router-dom";
 import ImageButton from "./components/ui/ImageMaskedButton";
+import { useEffect, useState } from "react";
+
+type TrainingPoint = {
+  epoch: number;
+  phase: "head" | "ft";
+  train_loss: number;
+  val_loss: number;
+  val_acc: number;
+  f1_macro: number;
+};
 
 const APP_URL = "/identification"; // ou l’URL déployée si différente
 
@@ -32,24 +44,26 @@ const F1_PER_CLASS = [
   { class: "Schiste", f1: 0.75, support: 10 },
 ];
 
-const TRAINING_CURVE = [
-  { epoch: 0, phase: "head", val_acc: 0.5472, f1_macro: 0.5461 },
-  { epoch: 1, phase: "head", val_acc: 0.5472, f1_macro: 0.5411 },
-  { epoch: 2, phase: "head", val_acc: 0.5660, f1_macro: 0.5673 },
-  { epoch: 3, phase: "head", val_acc: 0.6792, f1_macro: 0.6651 },
-  { epoch: 4, phase: "head", val_acc: 0.6792, f1_macro: 0.6798 },
-  { epoch: 5, phase: "head", val_acc: 0.6792, f1_macro: 0.6841 },
-  { epoch: 6, phase: "head", val_acc: 0.7170, f1_macro: 0.7197 },
-  { epoch: 7, phase: "head", val_acc: 0.7736, f1_macro: 0.7804 },
-  { epoch: 8, phase: "head", val_acc: 0.7170, f1_macro: 0.7332 },
-  { epoch: 9, phase: "head", val_acc: 0.7925, f1_macro: 0.7961 },
-  { epoch: 10, phase: "ft", val_acc: 0.8113, f1_macro: 0.8117 },
-  { epoch: 11, phase: "ft", val_acc: 0.6604, f1_macro: 0.6731 },
-  { epoch: 12, phase: "ft", val_acc: 0.7547, f1_macro: 0.7530 },
-  { epoch: 13, phase: "ft", val_acc: 0.7925, f1_macro: 0.7913 },
-  { epoch: 14, phase: "ft", val_acc: 0.7736, f1_macro: 0.7708 },
-  { epoch: 15, phase: "ft", val_acc: 0.7736, f1_macro: 0.7695 },
+const TRAINING_CURVE: TrainingPoint[] = [
+  { epoch: 0, phase: "head", train_loss: 1.3031, val_loss: 1.1501, val_acc: 0.5472, f1_macro: 0.5461 },
+  { epoch: 1, phase: "head", train_loss: 0.7072, val_loss: 1.0122, val_acc: 0.5472, f1_macro: 0.5411 },
+  { epoch: 2, phase: "head", train_loss: 0.5478, val_loss: 0.9833, val_acc: 0.5660, f1_macro: 0.5673 },
+  { epoch: 3, phase: "head", train_loss: 0.4914, val_loss: 0.8716, val_acc: 0.6792, f1_macro: 0.6651 },
+  { epoch: 4, phase: "head", train_loss: 0.4159, val_loss: 0.9235, val_acc: 0.6792, f1_macro: 0.6798 },
+  { epoch: 5, phase: "head", train_loss: 0.3575, val_loss: 0.8719, val_acc: 0.6792, f1_macro: 0.6841 },
+  { epoch: 6, phase: "head", train_loss: 0.3669, val_loss: 0.7688, val_acc: 0.7170, f1_macro: 0.7197 },
+  { epoch: 7, phase: "head", train_loss: 0.3026, val_loss: 0.6959, val_acc: 0.7736, f1_macro: 0.7804 },
+  { epoch: 8, phase: "head", train_loss: 0.2501, val_loss: 0.7299, val_acc: 0.7170, f1_macro: 0.7332 },
+  { epoch: 9, phase: "head", train_loss: 0.3670, val_loss: 0.6658, val_acc: 0.7925, f1_macro: 0.7961 },
+  { epoch: 10, phase: "ft", train_loss: 0.2858, val_loss: 0.5921, val_acc: 0.8113, f1_macro: 0.8117 },
+  { epoch: 11, phase: "ft", train_loss: 0.2970, val_loss: 0.6982, val_acc: 0.6604, f1_macro: 0.6731 },
+  { epoch: 12, phase: "ft", train_loss: 0.2533, val_loss: 0.6211, val_acc: 0.7547, f1_macro: 0.7530 },
+  { epoch: 13, phase: "ft", train_loss: 0.1816, val_loss: 0.6005, val_acc: 0.7925, f1_macro: 0.7913 },
+  { epoch: 14, phase: "ft", train_loss: 0.1579, val_loss: 0.6420, val_acc: 0.7736, f1_macro: 0.7708 },
+  { epoch: 15, phase: "ft", train_loss: 0.1700, val_loss: 0.6281, val_acc: 0.7736, f1_macro: 0.7695 },
 ];
+
+const EPOCH_TICKS = TRAINING_CURVE.map((p) => p.epoch);
 
 const CONFUSION_MATRIX = {
   classes: ["Basalte", "Calcaire", "Granite", "Grès", "Schiste"],
@@ -86,9 +100,39 @@ const Card: React.FC<{
   </section>
 );
 
+function useSelectedEpoch(trainingCurve: TrainingPoint[]) {
+  const [selectedEpoch, setSelectedEpoch] = useState<number | null>(null);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch("/models/model_meta.json");
+        const meta = await res.json();
+
+        const targetValAcc = meta.val_coverage;
+
+        const bestPoint = trainingCurve.reduce((best, curr) => {
+          const diffCurr = Math.abs(curr.val_acc - targetValAcc);
+          const diffBest = Math.abs(best.val_acc - targetValAcc);
+          return diffCurr < diffBest ? curr : best;
+        });
+
+        setSelectedEpoch(bestPoint.epoch);
+      } catch (err) {
+        console.error("Erreur chargement model_meta.json", err);
+      }
+    }
+
+    load();
+  }, [trainingCurve]);
+
+  return selectedEpoch;
+}
+
 export default function ModelPage() {
   const emissionsGrams = MODEL_SUMMARY.emissionsKg * 1000;
   const navigate = useNavigate();
+  const selectedEpoch = useSelectedEpoch(TRAINING_CURVE);
 
   return (
     <main className="text-white text-[15.5px] sm:text-[16.5px]">
@@ -152,8 +196,88 @@ export default function ModelPage() {
       </section>
 
       <div className="mx-auto max-w-6xl px-4 pb-14 space-y-8 sm:space-y-10 ">
-        {/* DATASET & REPARTITION */}
-        <Card title="Dataset & répartition">
+        {/* DATASET & SOURCES */}
+        <Card title="Dataset & sources">
+          <div className="space-y-5">
+
+            {/* Bloc 1 — Composition & origine */}
+            <article className="rounded-xl border border-[#17BDCD] p-4 flex gap-3">
+              <div className="text-2xl leading-none">🔎</div>
+              <div className="space-y-1">
+                <h4 className="font-semibold" style={{ fontSize: "18px" }}>
+                  Composition du dataset
+                </h4>
+                <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90">
+                  Le dataset utilisé pour entraîner le modèle Litho-SCAN regroupe des images
+                  provenant de sources publiques variées (Wikimedia Commons, sets Kaggle et
+                  images libres).
+                </p>
+                <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90">
+                  Objectif : constituer un ensemble compact mais diversifié représentant les
+                  5 classes de roches.
+                </p>
+              </div>
+            </article>
+
+            {/* Bloc 2 — Inventaire et organisation */}
+            <article className="rounded-xl border border-[#17BDCD] p-4 flex gap-3">
+              <div className="text-2xl leading-none">🗒️</div>
+              <div className="space-y-1">
+                <h4 className="font-semibold" style={{ fontSize: "18px" }}>
+                  Inventaire & organisation
+                </h4>
+                <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90">
+                  Toutes les images sont décrites dans un fichier d’inventaire (
+                  <code>Inventory.xlsx</code>) : classe, URL source, remarques...  
+                  Cet inventaire sert de référence pour vérifier les licences, suivre la
+                  couverture des classes et générer les splits train / val / test.
+                </p>
+              </div>
+            </article>
+
+            {/* Bloc 3 — Accès public & dataset Kaggle */}
+            <article className="rounded-xl border border-[#17BDCD] p-4 flex gap-3">
+              <div className="text-2xl leading-none">🌐</div>
+              <div className="space-y-1">
+                <h4 className="font-semibold" style={{ fontSize: "18px" }}>
+                  Accès public au dataset
+                </h4>
+                <p className="text-[15px] sm:text-[17px] leading-relaxed text-white/90">
+                  Pour respecter les licences des images originales, les photos d’entraînement ne sont 
+                  pas redistribuées.  
+                  En revanche, l’inventaire complet (sources, licences, documentation) est disponible
+                  publiquement sur Kaggle.  
+                  Un mini-set de démonstration, 100% libre de droits, est également intégré dans
+                  l’application — accessible via le bouton <span className="italic font-semibold">« Utiliser un exemple » </span>
+                  dans la page <span className="italic font-semibold">Identification</span>.
+                </p>
+              </div>
+            </article>
+
+            {/* Bouton Kaggle */}
+            <div className="w-full max-w-[360px] mx-auto">
+              <ImageButton
+                src="/ui/btn-full.png"
+                label="Voir le dataset Kaggle"
+                onClick={() => window.open(
+                  "https://www.kaggle.com/datasets/juliacostadesousa/litho-scan-rock-image-dataset-inventory",
+                  "_blank"
+                )}
+                fluid
+                minWidth={220}
+                maxWidth={360}
+                aspect={3.2}
+                hoverEffect={false}
+              />
+            </div>
+
+          </div>
+        </Card>
+
+
+
+        {/* REPARTITION & SPLITS */}
+        <Card title="Répartition du dataset">
           <div className="grid gap-6 lg:grid-cols-[1.1fr,0.9fr] items-start" style={{ textAlign: "justify" }}>
             <div className="space-y-3 min-w-0">
               <p className="leading-relaxed text-white/90">
@@ -292,10 +416,7 @@ export default function ModelPage() {
                 </div>
               </div>
 
-
-
-
-              <p className="text-s text-white/80 mt-2">
+              <p className="text-sm text-white/80 mt-2">
                 Un rapport de préparation de données est généré automatiquement
                 pour documenter les totaux, la proportion de chaque classe et
                 d’éventuelles anomalies (fichiers manquants, lignes invalides).
@@ -484,11 +605,11 @@ export default function ModelPage() {
                 <table className="border-separate border-spacing-[2px] rounded-xl border border-[#17BDCB] text-center">
                   <thead>
                     <tr>
-                      <th className="px-0 py-1 text-s text-white/80">Réel ↓ / Prédit →</th>
+                      <th className="px-0 py-1 text-sm text-white/80">Réel ↓ / Prédit →</th>
                       {CONFUSION_MATRIX.classes.map((c) => (
                         <th
                           key={c}
-                          className="px-2 py-1 text-s text-white/80 text-center"
+                          className="px-2 py-1 text-sm text-white/80 text-center"
                         >
                           {c}
                         </th>
@@ -499,7 +620,7 @@ export default function ModelPage() {
                   <tbody>
                     {CONFUSION_MATRIX.matrix.map((row, i) => (
                       <tr key={CONFUSION_MATRIX.classes[i]}>
-                        <td className="px-2 py-1 text-s text-white/80">
+                        <td className="px-2 py-1 text-sm text-white/80">
                           {CONFUSION_MATRIX.classes[i]}
                         </td>
 
@@ -556,15 +677,15 @@ export default function ModelPage() {
 
         {/* PIPELINE D'ENTRAINEMENT */}
         <Card title="Pipeline d’entraînement">
-          <div className="grid gap-6 lg:grid-cols-[1.2fr,1.8fr] items-stretch">
+          <div className="gap-6 items-stretch">
             {/* Bloc texte — passe en dessous du graph sur mobile */}
-            <div className="space-y-3 order-2 lg:order-1">
+            <div className="space-y-3">
               <p className="leading-relaxed text-white/90" style={{ textAlign: "justify" }}>
                 L’entraînement est géré par un script Python unique (
                 <code>train.py</code>) qui va du chargement des CSV jusqu’à
-                l&apos;export du modèle ONNX et des métriques finales. Les
-                points importants :
+                l&apos;export du modèle ONNX et des métriques finales. 
               </p>
+              <p>Les points importants :</p>
               {/* Points importants du pipeline */}
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-2">
 
@@ -631,73 +752,268 @@ export default function ModelPage() {
                   <code>best_phase2.ckpt</code>),
                 </li>
                 <li>
+                  un scheduler (<code>ReduceLROnPlateau</code>) et un early stopping
+                  sur la loss de validation pour éviter d’entraîner inutilement.
+                </li>
+                <li>
                   la génération des logs CSV (<code>train_log.csv</code>),
                 </li>
                 <li>le test final + export des scores JSON et de la CM.</li>
               </ul>
             </div>
+          </div>
+        </Card>
 
-            {/* Graph plus gros, en haut sur mobile */}
-            <div className="order-1 lg:order-2 rounded-xl border border-[#17BDCD] px-3 py-2">
+        {/* COURBES & MÉTRIQUES D'ENTRAÎNEMENT */}
+        <Card title="Courbes & métriques d’entraînement">
+          <div className="space-y-8">
+            <p className="text-white/90 mt-4">
+              L’entraînement est organisé en deux phases avec <span className="font-medium">
+              un nombre d’epochs maximum et un early stopping</span> :
+              la phase <span className="font-medium">"Head"</span> peut aller jusqu’à 10 epochs, 
+              et la phase <span className="font-medium">"FT"</span> (fine-tuning) jusqu’à 20. 
+              Dans le run affiché, la première phase utilise
+              ses 10 epochs complètes, tandis que la phase de fine-tuning est arrêtée
+              automatiquement après quelques epochs supplémentaires dès que la
+              loss de validation ne s’améliore plus pendant plusieurs epochs de suite
+              (patience = 5).
+            </p>
+            {/* Graph train_loss et val_loss */}
+            <div className="rounded-xl border border-[#17BDCD] px-3 py-2">
+              <p className="text-sm font-medium mb-2">
+                Train loss &amp; Val loss par epoch
+              </p>
+
+              <div className="w-full overflow-x-auto h-[280px]">
+                <div className="min-w-[520px] sm:min-w-full">
+                  <ResponsiveContainer width="100%" height={260}>
+                    <LineChart
+                      data={TRAINING_CURVE}
+                      margin={{ top: 20, right: 10, left: 10, bottom: 0 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#ffffff22" />
+
+                      <ReferenceArea
+                        x1={0}
+                        x2={9.5}
+                        fill="#59ff17ff"
+                        fillOpacity={0.08}
+                        label={{
+                          value: "Phase 1 — Head",
+                          position: "insideTop",
+                          fill: "#59ff1794",
+                          fontSize: 12,
+                        }}
+                      />
+                      <ReferenceArea
+                        x1={9.5}
+                        x2={15}
+                        fill="#ff1b41ff"
+                        fillOpacity={0.08}
+                        label={{
+                          value: "Phase 2 — FT",
+                          position: "insideTop",
+                          fill: "#ff1b41ce",
+                          fontSize: 12,
+                        }}
+                      />
+
+                      <XAxis
+                        dataKey="epoch"
+                        stroke="#ffffffdb"
+                        tickFormatter={(e) => `${e}`}
+                        allowDecimals={true}
+                        interval={0}
+                        type="number"
+                        domain={["dataMin", "dataMax"]}
+                        ticks={EPOCH_TICKS}
+                      />
+                      <YAxis
+                        stroke="#ffffffdb"
+                        width={35}
+                        tickSize={5}
+                        tick={{ dx: -5 }}
+                        domain={["dataMin - 0.1", "dataMax + 0.1"]}
+                        tickFormatter={(v) => {
+                          const raw = Array.isArray(v) ? v[0] : v;
+                          const num = Number(raw);
+                          return num.toFixed(2);
+                        }}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "#020617",
+                          borderRadius: 12,
+                          border: "1px solid #ffffff33",
+                          fontSize: 12,
+                        }}
+                        formatter={(value) => {
+                          const raw = Array.isArray(value) ? value[0] : value;
+                          const num = Number(raw);
+                          return num.toFixed(4);
+                        }}
+                        labelFormatter={(label) => `Epoch ${label}`}
+                      />
+                      <Legend
+                        verticalAlign="bottom"
+                        align="left"
+                        wrapperStyle={{ marginBottom: -15 }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="train_loss"
+                        name="Train loss"
+                        stroke="#17BDCD"
+                        strokeWidth={2}
+                        dot={false}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="val_loss"
+                        name="Val loss"
+                        stroke="#a855f7"
+                        strokeWidth={2}
+                        dot={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+              <div className="text-[14px] text-white/70 mt-6 space-y-1"> 
+                <p>• Phase &quot;Head&quot; (epochs 0–9) : seule la tête est entraînée.</p>
+                <p>• Phase &quot;FT&quot; (epochs 10–15) : fine-tuning ; dégel des 2 derniers blocs pour un ajustement plus fin.</p>
+              </div>
+            </div>
+            <p className="text-white/90 mt-4">
+              La courbe montre une baisse régulière de la loss d&apos;entraînement, suivie
+              par une loss de validation qui descend globalement dans le même ordre de
+              grandeur. On n&apos;observe pas de sur-apprentissage massif : la loss
+              validation reste proche de la loss train, avec quelques fluctuations normales
+              lors de la phase de fine-tuning.
+            </p>
+            {/* Graph val_acc & F1-macro */}
+            <div className="rounded-xl border border-[#17BDCD] px-3 py-2">
               <p className="text-sm font-medium mb-2">
                 Validation accuracy &amp; F1-macro par epoch
               </p>
-              <ResponsiveContainer width="100%" height={260}>
-                <LineChart
-                  data={TRAINING_CURVE}
-                  margin={{ top: 20, right: 10, left: 10, bottom: 0 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#ffffff22" />
-                  <XAxis
-                    dataKey="epoch"
-                    stroke="#ffffffdb"
-                    tickFormatter={(e) => `${e}`}
-                  />
-                  {/* ⬇️ plus de labels Y qui poussent le graph à droite */}
-                  <YAxis
-                    stroke="#ffffffdb"
-                    width={35}
-                    tickSize={5}
-                    tick={{ dx: -5 }}
-                    domain={[0.5, 0.85]}
-                    tickFormatter={(v) => `${Math.round(v * 100)}%`}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#020617",
-                      borderRadius: 12,
-                      border: "1px solid #ffffff33",
-                      fontSize: 12,
-                    }}
-                    formatter={(value: number) => `${(value * 100).toFixed(1)}%`}
-                    labelFormatter={(label) => `Epoch ${label}`}
-                  />
-                  <Legend verticalAlign="bottom" align="left" wrapperStyle={{ marginBottom: -15 }}/>
-                  <Line
-                    type="monotone"
-                    dataKey="val_acc"
-                    name="Val accuracy"
-                    stroke="#17BDCD"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="f1_macro"
-                    name="F1-macro"
-                    stroke="#a855f7"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-              <p className="text-[14px] text-white/70 mt-6">
-                <p>Phase &quot;head&quot; (epochs 0–9) : seule la tête est entraînée.</p>
-                <p>Phase &quot;ft&quot; (10–15) : dégel des 2 derniers blocs pour un ajustement plus fin.</p>
-              </p>
+
+              <div className="w-full overflow-x-auto h-[280px]">
+                <div className="min-w-[520px] sm:min-w-full">
+                  <ResponsiveContainer width="100%" height={260}>
+                    <LineChart
+                      data={TRAINING_CURVE}
+                      margin={{ top: 20, right: 10, left: 10, bottom: 0 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#ffffff22" />
+
+                      <ReferenceArea
+                        x1={0}
+                        x2={9.5}
+                        fill="#59ff17ff"
+                        fillOpacity={0.08}
+                        label={{
+                          value: "Phase 1 — Head",
+                          position: "insideTop",
+                          fill: "#59ff1794",
+                          fontSize: 12,
+                        }}
+                      />
+                      <ReferenceArea
+                        x1={9.5}
+                        x2={15}
+                        fill="#ff1b41ff"
+                        fillOpacity={0.08}
+                        label={{
+                          value: "Phase 2 — FT",
+                          position: "insideTop",
+                          fill: "#ff1b41ce",
+                          fontSize: 12,
+                        }}
+                      />
+
+                      <XAxis
+                        dataKey="epoch"
+                        stroke="#ffffffdb"
+                        tickFormatter={(e) => `${e}`}
+                        allowDecimals={true}
+                        interval={0}
+                        type="number"
+                        domain={["dataMin", "dataMax"]}
+                        ticks={EPOCH_TICKS}
+                      />
+                      <YAxis
+                        stroke="#ffffffdb"
+                        width={35}
+                        tickSize={5}
+                        tick={{ dx: -5 }}
+                        domain={[0.5, 0.85]}
+                        tickFormatter={(v) => `${Math.round(v * 100)}%`}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "#020617",
+                          borderRadius: 12,
+                          border: "1px solid #ffffff33",
+                          fontSize: 12,
+                        }}
+                        formatter={(value: number) => `${(value * 100).toFixed(1)}%`}
+                        labelFormatter={(label) => `Epoch ${label}`}
+                      />
+                      <Legend
+                        verticalAlign="bottom"
+                        align="left"
+                        wrapperStyle={{ marginBottom: -15 }}
+                      />
+                      {selectedEpoch !== null && (
+                        <ReferenceLine
+                          x={selectedEpoch}
+                          stroke="#ffd413ff"
+                          strokeWidth={2}
+                          strokeDasharray="4 4"
+                          label={{
+                            value: `Epoch choisie`,
+                            position: "top",
+                            fill: "#ffd413ff",
+                            fontSize: 11,
+                          }}
+                        />
+                      )}
+
+                      <Line
+                        type="monotone"
+                        dataKey="val_acc"
+                        name="Val accuracy"
+                        stroke="#17BDCD"
+                        strokeWidth={2}
+                        dot={false}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="f1_macro"
+                        name="F1-macro"
+                        stroke="#a855f7"
+                        strokeWidth={2}
+                        dot={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+              <div className="text-[14px] text-white/70 mt-6 space-y-1"> 
+                <p>• Phase &quot;Head&quot; (epochs 0–9) : seule la tête est entraînée.</p>
+                <p>• Phase &quot;FT&quot; (epochs 10–15) : fine-tuning ; dégel des 2 derniers blocs pour un ajustement plus fin.</p>
+              </div>
             </div>
+            <p className="text-white/90 mt-4">
+              L&apos;accuracy de validation et le F1-macro augmentent nettement au fil des
+              epochs, avec un léger creux lors d&apos;une epoch moins stable (11ème). L&apos;epoch
+              marquée en pointillé correspond à celle utilisée pour l&apos;inférence dans
+              l&apos;application&nbsp;: elle offre un bon compromis entre performance,
+              stabilité des métriques et couverture sur le set de validation.
+            </p>
           </div>
         </Card>
+
 
         {/* CALIBRATION & ABSTENTION */}
         <Card title="Calibration des incertitudes & seuils d’abstention">
@@ -752,7 +1068,7 @@ export default function ModelPage() {
                 </div>
               </div>
 
-              <p className="text-s text-white/85">
+              <p className="text-sm text-white/85">
                 Les paramètres retenus sont stockés dans un fichier de métadonnées
                 utilisé par l’inférence dans le navigateur.
               </p>
@@ -786,6 +1102,8 @@ export default function ModelPage() {
                 </span>. Les runs sont mesurés avec CodeCarbon, qui estime les
                 émissions à partir de la consommation CPU / GPU et du mix
                 énergétique local.
+                L’inférence n’est pas mesurée car elle s’exécute directement dans le navigateur de l’utilisateur (onnxruntime-web), sans GPU serveur ni requêtes API. Son impact énergétique est très faible — comparable à celui d’un petit calcul local — et difficile à estimer précisément de manière standardisée.
+                Le suivi se concentre donc sur la phase réellement coûteuse : l’entraînement.
               </p>
               <ul className="list-disc pl-5 space-y-1 text-white/85">
                 <li>
@@ -839,7 +1157,7 @@ export default function ModelPage() {
                   className="w-full rounded-xl border border-[#17BDCD] shadow-lg"
                 />
               </div>
-              <p className="text-s text-white/80">
+              <p className="text-sm text-white/80">
                 Illustration de l’ordre de grandeur des émissions, basée sur
                 le simulateur Impact CO₂ (ADEME).
               </p>

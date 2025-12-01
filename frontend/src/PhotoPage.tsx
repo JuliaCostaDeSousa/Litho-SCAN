@@ -66,9 +66,25 @@ function CameraModal({
 
 return (
   <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-    <div className="bg-transparent rounded-2xl p-4 w-full max-w-md grid gap-3">
-      <h2 className="text-lg font-semibold">Prendre une photo</h2>
-
+    <div 
+      className="border border-[#17BDCD] rounded-2xl p-4 w-full max-w-md grid gap-3"           
+      style={{
+              backgroundImage: "url('/ui/bg.png')",
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              backdropFilter: "blur(2px)",
+      }}>
+      <div className="flex items-center justify-between mb-3 sm:mb-4">
+        <h2 className="text-lg text-white/90 font-semibold">Prendre une photo</h2>
+        <button
+            type="button"
+            onClick={onClose}
+            className="text-sm text-white/70 hover:text-white inline-flex items-center rounded-full border border-[#17BDCD] px-4 py-1"
+          >
+            Fermer
+        </button>
+      </div>
+ 
       {err ? (
         <div className="space-y-2">
           <p className="text-red-600">{err}</p>
@@ -78,20 +94,28 @@ return (
           </ul>
         </div>
       ) : (
-        <video ref={videoRef} autoPlay playsInline className="w-full rounded-none bg-black rounded-none" style={{ borderRadius: 0 }} />
+        <video ref={videoRef} autoPlay playsInline className="w-full rounded-none bg-black"/>
       )}
 
-      <div className="flex gap-2 justify-end">
-        <button onClick={onClose} className="px-4 py-2 rounded-xl bg-gray-200">Fermer</button>
+      <div className="flex gap-2 justify-end">      
         {err && onFallback && (
-          <button onClick={onFallback} className="px-4 py-2 rounded-xl bg-gray-100">
+          <button onClick={onFallback} className="text-sm text-white/70 hover:text-white inline-flex items-center rounded-full border border-[#17BDCD] px-4 py-1">
            Mode natif
           </button>
         )}
         {!err && (
-          <button onClick={takeShot} className="px-4 py-2 rounded-xl bg-blue-600 text-white">
-            Capturer
-          </button>
+          <div className="w-full max-w-[200px] mx-auto">
+            <ImageButton
+              src="/ui/btn-full.png"
+              label="Capturer"
+              onClick={takeShot}
+              fluid
+              minWidth={220}
+              maxWidth={360}
+              aspect={3.2}
+              hoverEffect={false}
+            />
+          </div>
         )}
       </div>
     </div>
@@ -99,10 +123,20 @@ return (
   );
 }
 
+const DEMO_SAMPLES = [
+  { label: "Basalte", src: "/demo_samples/basalte_01.jpg" },
+  { label: "Calcaire", src: "/demo_samples/calcaire_01.jpg" },
+  { label: "Granite", src: "/demo_samples/granite_01.jpg" },
+  { label: "Grès", src: "/demo_samples/gres_01.jpg" },
+  { label: "Schiste", src: "/demo_samples/schiste_01.jpg" },
+  { label: "Non reconnue", src: "/demo_samples/unknown_01.jpg" },
+];
+
 function PhotoPage() {
   const navigate = useNavigate();
   const [showCamera, setShowCamera] = useState(false);
-  const [error, setError] = useState<string|null>(null)
+  const [error, setError] = useState<string|null>(null);
+  const [showDemo, setShowDemo] = useState(false);
 
   // Fallback input refs (pour mobile / cas non supportés)
   const galleryRef = useRef<HTMLInputElement>(null);
@@ -229,6 +263,23 @@ function PhotoPage() {
     }
   }
 
+  async function analyseImageFromUrl(src: string) {
+    try {
+      const res = await fetch(src);
+      const blob = await res.blob();
+
+      // On fabrique un "File" pour réutiliser processPickedFile
+      const file = new File([blob], "demo_sample.jpg", {
+        type: blob.type || "image/jpeg",
+      });
+
+      await processPickedFile(file);
+    } catch (e) {
+      console.error("Erreur chargement image de démo", e);
+      setError("Impossible de charger l’image de démonstration.");
+    }
+  }
+
   const FRAME_SIZE = 224;   // même cadre que FramedPreview
   const STATUS_H   = 80;    // même hauteur réservée pour messages
   const FRAME_PADDING = 0;
@@ -270,18 +321,26 @@ function PhotoPage() {
 
       {/* Boutons — mêmes dimensions / spacing que /confirm */}
       <div className="w-full max-w-[360px] mx-auto">
+        <input
+          ref={galleryRef}
+          type="file"
+          accept="image/*"
+          onChange={onFileSelected}
+          className="sr-only"
+        />
+        <input
+          ref={cameraRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={onFileSelected}
+          className="sr-only"
+        />
         {/* Importer */}
         <div className="w-full max-w-[360px] mx-auto">
-          <input
-            ref={galleryRef}
-            type="file"
-            accept="image/*"
-            onChange={onFileSelected}
-            className="sr-only"
-          />
           <ImageButton
             src="/ui/btn-full.png"
-            label="Importer photo"
+            label="Importer une photo"
             onClick={() => galleryRef.current?.click()}
             fluid
             minWidth={220}
@@ -295,8 +354,22 @@ function PhotoPage() {
         <div className="w-full max-w-[360px] mx-auto">
           <ImageButton
             src="/ui/btn-full.png"
-            label="Prendre Photo"
+            label="Prendre une photo"
             onClick={takePhoto}
+            fluid
+            minWidth={220}
+            maxWidth={360}
+            aspect={3.2}
+            hoverEffect={false}
+          />
+        </div>
+
+        {/* Photo Demo */}
+        <div className="w-full max-w-[360px] mx-auto">
+          <ImageButton
+            src="/ui/btn-full.png"
+            label="Utiliser un exemple"
+            onClick={() => setShowDemo((v) => !v)}
             fluid
             minWidth={220}
             maxWidth={360}
@@ -314,6 +387,70 @@ function PhotoPage() {
         onClose={() => setShowCamera(false)}
         onFallback={isIOS ? () => cameraRef.current?.click() : undefined}
       />
+    )}
+
+    {showDemo && (
+      <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+        <div
+          className="
+            border border-[#17BDCD] rounded-2xl p-4 sm:p-5
+            w-full
+            max-w-lg sm:max-w-xl md:max-w-2xl lg:max-w-3xl
+            max-h-[80vh] overflow-y-auto
+          "
+          style={{
+            backgroundImage: "url('/ui/bg.png')",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backdropFilter: "blur(2px)",
+          }}
+        >
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <h2 className="text-base sm:text-lg font-semibold text-white">
+              Choisir une image d’exemple
+            </h2>
+            <button
+              type="button"
+              onClick={() => setShowDemo(false)}
+              className="text-sm text-white/70 hover:text-white inline-flex items-center rounded-full border border-[#17BDCD] px-4 py-1"
+            >
+              Fermer
+            </button>
+          </div>
+
+          <p className="text-sm text-white/90 mb-3 sm:mb-4">
+            Sélectionne une image pour tester le modèle sans fournir de photo personnelle.
+          </p>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            {DEMO_SAMPLES.map((s) => (
+              <button
+                key={s.src}
+                type="button"
+                className="
+                  p-2 rounded-xl border border-white/10 bg-black/30 cursor-pointer 
+                  hover:border-[#17BDCD] 
+                  hover:shadow-[0_0_12px_rgba(23,189,205,0.6)]
+                  transition
+                "
+                onClick={() => {
+                  setShowDemo(false);
+                  analyseImageFromUrl(s.src);
+                }}
+              >
+                <img
+                  src={s.src}
+                  alt={s.label}
+                  className="rounded-lg w-full aspect-square object-cover"
+                />
+                <p className="text-center mt-2 text-white/90 text-sm">
+                  {s.label}
+                </p>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
     )}
   </>
 );
